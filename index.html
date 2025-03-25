@@ -1,0 +1,56 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>R5 Secure Token Checker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>R5 Secure Token Checker</header>
+
+  <div class="token-card">
+    Overall Score: <strong style="color: #14FFB9;">82</strong>
+  </div>
+
+  <div class="token-card" style="text-align: center;">
+    <button onclick="thumbVote('up')" style="font-size: 24px; margin: 5px 20px;">😊 <span id="thumbUpCount">0</span></button>
+    <button onclick="thumbVote('down')" style="font-size: 24px; margin: 5px 20px;">😞 <span id="thumbDownCount">0</span></button>
+  </div>
+
+  <div class="collapsible" onclick="toggleContent('section1')">Token History & Sentiment</div>
+  <div class="collapsible-content" id="section1">
+    <p>Created: Mar 10, 2025</p>
+    <p>Sentiment: Positive</p>
+  </div>
+
+  <div class="collapsible" onclick="toggleContent('section2')">Liquidity & Ownership</div>
+  <div class="collapsible-content" id="section2">
+    <p>LP Locked: Until Jul 2025</p>
+    <p>Ownership: Renounced</p>
+  </div>
+
+  <div class="collapsible" onclick="toggleContent('section3')">Audit & Contract</div>
+  <div class="collapsible-content" id="section3">
+    <p>Audit: Certik</p>
+    <p>Blacklist Function: None</p>
+    <p>KYC Status: Verified</p>
+  </div>
+
+  <div class="collapsible" onclick="toggleContent('section4')">Community Reports</div>
+  <div class="collapsible-content" id="section4">
+    <p><em>Summarizes user trust score and any scam reports from the community.</em></p>
+    <p>Trust Score: 90%</p>
+    <p>Scam Reports: None</p>
+    <p><strong>Community Feedback:</strong></p>
+    <div style="margin-top: 10px;">
+      <button class="button" style="width: 100%; background-color: #28a745;" onclick="vote('support')">Support (<span id="supportCount">0</span>)</button>
+      <button class="button" style="width: 100%; background-color: #ffc107; color: black;" onclick="vote('unsure')">Unsure (<span id="unsureCount">0</span>)</button>
+      <button class="button" style="width: 100%; background-color: #dc3545;" onclick="vote('noSupport')">Don’t Support (<span id="noSupportCount">0</span>)</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
