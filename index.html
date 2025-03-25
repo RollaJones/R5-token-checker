@@ -1,30 +1,197 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>R5 Token Checker – Live Data</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R5 Secure Token Checker</title>
+    <style>
+        body {
+            background-color: #121212;
+            font-family: Arial, sans-serif;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+        header, .section, .token-card, .collapsible {
+            margin: 20px;
+        }
+        header {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .top-banner {
+            background-color: #1e1e1e;
+            padding: 10px;
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+        }
+        .top-token {
+            background-color: #333;
+            padding: 10px 15px;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+        .search-bar input, .wallet-bar input {
+            width: 90%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            margin: 10px auto;
+            display: block;
+        }
+        .button {
+            background-color: #14FFB9;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px auto;
+            display: block;
+        }
+        .section-title {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .token-card {
+            background-color: #1e1e1e;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .collapsible {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .collapsible h3 {
+            cursor: pointer;
+        }
+        .content {
+            display: none;
+            padding: 10px 0;
+        }
+        footer {
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #333;
+        }
+    </style>
 </head>
 <body>
-  <header>R5 Secure Token Checker</header>
+    <header>R5 Secure Token Checker</header>
 
-  <div class="token-card">
-    <input type="text" id="mintInput" placeholder="Enter Solana Token Mint Address" style="width: 90%; padding: 10px; margin: 10px;">
-    <button class="button" onclick="fetchTokenData()">Check Token</button>
-  </div>
+    <div class="top-banner">
+        <div class="top-token">Token ABC - 89</div>
+        <div class="top-token">Token XYZ - 83</div>
+        <div class="top-token">Token LMN - 81</div>
+        <div class="top-token">Token DEF - 79</div>
+        <div class="top-token">Token QRS - 77</div>
+    </div>
 
-  <div class="token-card" id="tokenResult" style="display: none;">
-    <h3>Live Token Info:</h3>
-    <p><strong>Name:</strong> <span id="tokenName"></span></p>
-    <p><strong>Symbol:</strong> <span id="tokenSymbol"></span></p>
-    <p><strong>Price:</strong> $<span id="tokenPrice"></span></p>
-    <p><strong>Liquidity:</strong> $<span id="tokenLiquidity"></span></p>
-    <p><strong>24h Volume:</strong> $<span id="tokenVolume"></span></p>
-    <p><strong>Last Trade:</strong> <span id="tokenLastTrade"></span></p>
-  </div>
+    <div class="search-bar">
+        <input type="text" placeholder="Enter Token ID or Mint Address">
+    </div>
 
-  <script src="script.js"></script>
+    <div class="section">
+        <div class="section-title">Token ABC Safety Report</div>
+        <div class="token-card">Overall Score: <strong style="color: #14FFB9;">82</strong></div>
+
+        <div class="token-card">
+            <strong>Token Summary:</strong>
+            <p>This token shows a strong safety score of 82, with liquidity locked and ownership renounced. It has no blacklist functions or audit issues and appears to have clean developer wallet activity. However, 60% of supply is held by the top 5 wallets, which introduces a moderate centralization risk. Community sentiment and trust scores are positive, and no scam reports have been filed.</p>
+        </div>
+
+        <div class="collapsible">
+            <h3 onclick="toggleContent(this)">Token History & Sentiment</h3>
+            <div class="content">
+                <p>Created: Mar 10, 2025</p>
+                <p>Sentiment: Positive</p>
+                <p><strong>Premium 🔒</strong> Historical Score Chart</p>
+            </div>
+        </div>
+
+        <div class="collapsible">
+            <h3 onclick="toggleContent(this)">Liquidity & Ownership</h3>
+            <div class="content">
+                <p>LP Locked: Until Jul 2025</p>
+                <p>Ownership: Renounced</p>
+            </div>
+        </div>
+
+        <div class="collapsible">
+            <h3 onclick="toggleContent(this)">Audit & Contract</h3>
+            <div class="content">
+                <p>Audit: Certik</p>
+                <p>Blacklist Function: None</p>
+                <p>KYC Status: Verified</p>
+            </div>
+        </div>
+
+        <div class="collapsible">
+            <h3 onclick="toggleContent(this)">Wallet Activity</h3>
+            <div class="content">
+                <p>Dev Wallet Activity: Clean</p>
+                <p><strong>Premium 🔒</strong> Influencer Activity</p>
+            </div>
+        </div>
+
+        <div class="collapsible">
+            <h3 onclick="toggleContent(this)">Holder Data</h3>
+            <div class="content">
+                <ul>
+                    <li>Wallet 1: 22% - 3xG...FaK1</li>
+                    <li>Wallet 2: 15% - 7kD...TjQ9</li>
+                    <li>Wallet 3: 10% - 4qA...XzL3</li>
+                    <li>Wallet 4: 8%  - 9vM...RtZ2</li>
+                    <li>Wallet 5: 5%  - 1eW...KyB7</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="collapsible">
+            <h3 onclick="toggleContent(this)">Community Reports</h3>
+            <div class="content">
+                <p>Trust Score: 90%</p>
+                <p>Scam Reports: None</p>
+                <button class="button" style="background-color: #28a745;" onclick="vote('support')">Support (<span id="supportCount">0</span>)</button>
+                <button class="button" style="background-color: #ffc107; color: black;" onclick="vote('unsure')">Unsure (<span id="unsureCount">0</span>)</button>
+                <button class="button" style="background-color: #dc3545;" onclick="vote('noSupport')">Don’t Support (<span id="noSupportCount">0</span>)</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="wallet-bar">
+            <input type="text" placeholder="Enter Wallet Address (Premium)">
+        </div>
+        <button class="button">Scan My Wallet</button>
+    </footer>
+
+    <script>
+        let support = 0, unsure = 0, noSupport = 0;
+
+        function toggleContent(element) {
+            const content = element.nextElementSibling;
+            content.style.display = content.style.display === "block" ? "none" : "block";
+        }
+
+        function vote(type) {
+            if (type === 'support') {
+                support++;
+                document.getElementById('supportCount').textContent = support;
+            } else if (type === 'unsure') {
+                unsure++;
+                document.getElementById('unsureCount').textContent = unsure;
+            } else if (type === 'noSupport') {
+                noSupport++;
+                document.getElementById('noSupportCount').textContent = noSupport;
+            }
+        }
+    </script>
 </body>
 </html>
