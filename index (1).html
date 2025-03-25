@@ -1,0 +1,30 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>R5 Token Checker – Live Data</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>R5 Secure Token Checker</header>
+
+  <div class="token-card">
+    <input type="text" id="mintInput" placeholder="Enter Solana Token Mint Address" style="width: 90%; padding: 10px; margin: 10px;">
+    <button class="button" onclick="fetchTokenData()">Check Token</button>
+  </div>
+
+  <div class="token-card" id="tokenResult" style="display: none;">
+    <h3>Live Token Info:</h3>
+    <p><strong>Name:</strong> <span id="tokenName"></span></p>
+    <p><strong>Symbol:</strong> <span id="tokenSymbol"></span></p>
+    <p><strong>Price:</strong> $<span id="tokenPrice"></span></p>
+    <p><strong>Liquidity:</strong> $<span id="tokenLiquidity"></span></p>
+    <p><strong>24h Volume:</strong> $<span id="tokenVolume"></span></p>
+    <p><strong>Last Trade:</strong> <span id="tokenLastTrade"></span></p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
