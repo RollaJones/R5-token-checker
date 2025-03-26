@@ -1,5 +1,6 @@
 const dotenv = require('dotenv');
 dotenv.config(); // MUST come first to load env variables
+console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
 
 const express = require('express');
 const cors = require('cors');
