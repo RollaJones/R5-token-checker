@@ -184,6 +184,7 @@
     </footer>
 
 <script>
+    <script>
     let support = 0, unsure = 0, noSupport = 0;
 
     function toggleContent(element) {
@@ -225,17 +226,34 @@
             const data = await response.json();
             resultsDiv.textContent = '';
 
-            // Update Token Report Section
-            document.querySelector('.section-title').textContent = `${data.name || 'Unknown Token'} Safety Report`;
-            document.querySelector('.token-card strong').textContent = data.score !== undefined ? data.score : 'N/A';
+            // Extract from DexScreener-style response
+            const pair = data.pair || {};
+            const base = pair.baseToken || {};
+            const liquidity = pair.liquidity || {};
+            const volume = pair.volume || {};
+            const txns = pair.txns?.h24 || {};
+            const lockInfo = data.liquidityLock || {};
 
-            // Update Summary Card
+            const name = base.name || 'Unknown Token';
+            const symbol = base.symbol || 'N/A';
+            const score = liquidity.usd > 10000 ? 85 : 40; // Example score logic
+            const flagList = [];
+            if (liquidity.usd < 5000) flagList.push("⚠️ Low Liquidity");
+            if (volume.h24 < 10000) flagList.push("⚠️ Low Volume");
+
+            // Update UI
+            document.querySelector('.section-title').textContent = `${name} Safety Report`;
+            document.querySelector('.token-card strong').textContent = score;
+
             const summaryCard = document.querySelectorAll('.token-card')[1].querySelector('p');
-            if (data.success) {
-                summaryCard.textContent = `Token ${data.name || ''} (${data.symbol || ''}) scored ${data.score}. Liquidity is $${data.liquidityUSD || '0'}, flagged issues: ${data.flags?.join(', ') || 'none'}. Source: ${data.source}.`;
-            } else {
-                summaryCard.textContent = data.status || 'Token not found.';
-            }
+            summaryCard.textContent = `${name} (${symbol}) has $${liquidity.usd?.toLocaleString() || 0} liquidity and $${volume.h24?.toLocaleString() || 0} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}. ${flagList.length ? flagList.join(' ') : '✅ Healthy activity.'}`;
+
+            // Liquidity & Ownership section
+            const liquiditySection = document.querySelectorAll('.collapsible')[1].querySelector('.content');
+            liquiditySection.innerHTML = `
+                <p>LP Locked: ${lockInfo.locked ? `Until ${new Date(lockInfo.until).toLocaleDateString()}` : '❌ Not Locked'}</p>
+                <p>Ownership: ${lockInfo.renounced ? 'Renounced' : 'Not Renounced'}</p>
+            `;
         } catch (err) {
             resultsDiv.textContent = '⚠️ Error connecting to local server.';
             console.error(err);
