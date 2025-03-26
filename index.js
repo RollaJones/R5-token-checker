@@ -5,7 +5,11 @@ const scanRoutes = require('./routes/scan');
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 5000;
+
+// Use only the port provided by Railway
+const PORT = process.env.PORT;
+
+console.log("Detected PORT from environment:", PORT);
 
 app.use(cors());
 app.use(express.json());
