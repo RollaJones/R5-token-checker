@@ -2,9 +2,11 @@ const axios = require('axios');
 
 async function analyzeToken(mintAddress) {
     const apiUrl = `https://api.dexscreener.com/latest/dex/pairs/solana/${mintAddress}`;
+    console.log("Fetching from:", apiUrl); // Debug log
 
     try {
         const { data } = await axios.get(apiUrl);
+
         if (!data || !data.pair) {
             throw new Error('Token not found');
         }
@@ -28,6 +30,7 @@ async function analyzeToken(mintAddress) {
 
         return report;
     } catch (err) {
+        console.error("Fetch error:", err.message); // Debug log for error
         throw err;
     }
 }
