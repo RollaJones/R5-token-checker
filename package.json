@@ -1,7 +1,8 @@
+
 {
-  "name": "r5-backend",
+  "name": "r5-token-checker",
   "version": "1.0.0",
-  "description": "Backend for R5 Secure Token Checker",
+  "description": "Backend API for R5 Secure Token Checker",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
