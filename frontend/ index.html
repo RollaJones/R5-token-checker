@@ -80,6 +80,14 @@
             text-align: center;
             border-top: 1px solid #333;
         }
+        #results {
+            margin: 20px;
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 10px;
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -94,8 +102,11 @@
     </div>
 
     <div class="search-bar">
-        <input type="text" placeholder="Enter Token ID or Mint Address">
+        <input type="text" id="mintInput" placeholder="Enter Token ID or Mint Address">
+        <button class="button" onclick="scanToken()">Scan Token</button>
     </div>
+
+    <div id="results"></div>
 
     <div class="section">
         <div class="section-title">Token ABC Safety Report</div>
@@ -192,6 +203,33 @@
                 document.getElementById('noSupportCount').textContent = noSupport;
             }
         }
+
+        async function scanToken() {
+            const mint = document.getElementById('mintInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+
+            if (!mint) {
+                resultsDiv.textContent = '❌ Please enter a mint address.';
+                return;
+            }
+
+            resultsDiv.textContent = '🔍 Scanning...';
+
+            try {
+                const response = await fetch('http://localhost:5000/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mintAddress: mint })
+                });
+
+                const data = await response.json();
+                resultsDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                resultsDiv.textContent = '⚠️ Error connecting to local server.';
+                console.error(err);
+            }
+        }
     </script>
 </body>
 </html>
+
