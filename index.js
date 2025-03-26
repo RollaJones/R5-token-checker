@@ -7,7 +7,7 @@ const cors = require('cors');
 const scanRoutes = require('./routes/scan');
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 
 console.log("Detected PORT from environment:", PORT);
 
