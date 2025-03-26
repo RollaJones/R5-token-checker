@@ -3,12 +3,15 @@ const axios = require('axios');
 async function analyzeToken(mintAddress) {
     const dexURL = `https://api.dexscreener.com/latest/dex/pairs/solana/${mintAddress}`;
     const birdeyeURL = `https://public-api.birdeye.so/public/token/${mintAddress}`;
-
-    console.log("Trying DexScreener:", dexURL);
+    const heliusTxURL = `https://api.helius.xyz/v0/addresses/${mintAddress}/transactions?api-key=${process.env.HELIUS_KEY}`;
 
     let dexData = null;
-    let dexError = null;
+    let birdeyeData = null;
+    let heliusTxData = null;
+    let heliusError = null;
 
+    // --- Try DexScreener ---
+    console.log("Trying DexScreener:", dexURL);
     try {
         const { data } = await axios.get(dexURL);
         console.log("DexScreener response:", JSON.stringify(data, null, 2));
@@ -28,20 +31,15 @@ async function analyzeToken(mintAddress) {
 
         dexData = data;
     } catch (err) {
-        dexError = err.message;
         console.error("DexScreener error:", err.message);
     }
 
+    // --- Try Birdeye ---
     console.log("Falling back to Birdeye:", birdeyeURL);
-
-    let birdeyeData = null;
-    let birdeyeError = null;
-
     try {
         const { data } = await axios.get(birdeyeURL, {
             headers: { 'x-chain': 'solana' }
         });
-
         console.log("Birdeye response:", JSON.stringify(data, null, 2));
 
         if (data && (data.name || data.symbol)) {
@@ -58,25 +56,48 @@ async function analyzeToken(mintAddress) {
 
         birdeyeData = data;
     } catch (err) {
-        birdeyeError = err.message;
         console.error("Birdeye error:", err.message);
     }
 
-    // Fallback debug return
+    // --- Final Fallback: Helius (check if token is used on-chain) ---
+    console.log("Checking Helius transaction history:", heliusTxURL);
+    try {
+        const { data } = await axios.get(heliusTxURL);
+        console.log("Helius TX response:", JSON.stringify(data?.[0] || {}, null, 2));
+
+        if (Array.isArray(data) && data.length > 0) {
+            return {
+                status: "Token not found on Dex or Birdeye, but is active on-chain.",
+                recentTransactions: data.length,
+                source: "Helius",
+                success: true
+            };
+        }
+
+        heliusTxData = data;
+    } catch (err) {
+        heliusError = err.message;
+        console.error("Helius error:", err.message);
+    }
+
+    // --- Final fallback if all fail ---
     return {
-        status: "Token not found on DexScreener or Birdeye. It may not be active or indexed yet.",
+        status: "Token not found on DexScreener, Birdeye, or Helius.",
         debug: true,
+        success: false,
         dexscreener: {
             url: dexURL,
-            error: dexError,
             response: dexData
         },
         birdeye: {
             url: birdeyeURL,
-            error: birdeyeError,
             response: birdeyeData
         },
-        success: false
+        helius: {
+            url: heliusTxURL,
+            response: heliusTxData,
+            error: heliusError
+        }
     };
 }
 
