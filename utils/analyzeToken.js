@@ -5,7 +5,11 @@ async function analyzeToken(mintAddress) {
     console.log("Trying DexScreener:", dexURL);
 
     try {
-        const { data } = await axios.get(dexURL);
+        const response = await axios.get(dexURL);
+        const data = response.data;
+
+        console.log("DexScreener response:", JSON.stringify(data, null, 2));
+
         if (data && data.pair) {
             const pair = data.pair;
             return {
@@ -27,9 +31,12 @@ async function analyzeToken(mintAddress) {
     console.log("Falling back to Birdeye:", birdeyeURL);
 
     try {
-        const { data } = await axios.get(birdeyeURL, {
+        const response = await axios.get(birdeyeURL, {
             headers: { 'x-chain': 'solana' }
         });
+        const data = response.data;
+
+        console.log("Birdeye response:", JSON.stringify(data, null, 2));
 
         if (data && (data.name || data.symbol)) {
             return {
@@ -46,7 +53,7 @@ async function analyzeToken(mintAddress) {
         console.error("Birdeye error:", err.message);
     }
 
-    // Final fallback message if both fail
+    // Final fallback
     return {
         status: "Token not found on DexScreener or Birdeye. It may not be active or indexed yet.",
         success: false
