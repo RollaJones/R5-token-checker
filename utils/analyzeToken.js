@@ -2,12 +2,15 @@ const axios = require('axios');
 
 async function analyzeToken(mintAddress) {
     const dexURL = `https://api.dexscreener.com/latest/dex/pairs/solana/${mintAddress}`;
+    const birdeyeURL = `https://public-api.birdeye.so/public/token/${mintAddress}`;
+
     console.log("Trying DexScreener:", dexURL);
 
-    try {
-        const response = await axios.get(dexURL);
-        const data = response.data;
+    let dexData = null;
+    let dexError = null;
 
+    try {
+        const { data } = await axios.get(dexURL);
         console.log("DexScreener response:", JSON.stringify(data, null, 2));
 
         if (data && data.pair) {
@@ -22,19 +25,22 @@ async function analyzeToken(mintAddress) {
                 source: 'DexScreener'
             };
         }
+
+        dexData = data;
     } catch (err) {
+        dexError = err.message;
         console.error("DexScreener error:", err.message);
     }
 
-    // Fallback to Birdeye
-    const birdeyeURL = `https://public-api.birdeye.so/public/token/${mintAddress}`;
     console.log("Falling back to Birdeye:", birdeyeURL);
 
+    let birdeyeData = null;
+    let birdeyeError = null;
+
     try {
-        const response = await axios.get(birdeyeURL, {
+        const { data } = await axios.get(birdeyeURL, {
             headers: { 'x-chain': 'solana' }
         });
-        const data = response.data;
 
         console.log("Birdeye response:", JSON.stringify(data, null, 2));
 
@@ -49,13 +55,27 @@ async function analyzeToken(mintAddress) {
                 source: 'Birdeye'
             };
         }
+
+        birdeyeData = data;
     } catch (err) {
+        birdeyeError = err.message;
         console.error("Birdeye error:", err.message);
     }
 
-    // Final fallback
+    // Fallback debug return
     return {
         status: "Token not found on DexScreener or Birdeye. It may not be active or indexed yet.",
+        debug: true,
+        dexscreener: {
+            url: dexURL,
+            error: dexError,
+            response: dexData
+        },
+        birdeye: {
+            url: birdeyeURL,
+            error: birdeyeError,
+            response: birdeyeData
+        },
         success: false
     };
 }
