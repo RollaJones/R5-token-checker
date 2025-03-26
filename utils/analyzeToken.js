@@ -1,37 +1,50 @@
 const axios = require('axios');
 
 async function analyzeToken(mintAddress) {
-    const apiUrl = `https://api.dexscreener.com/latest/dex/pairs/solana/${mintAddress}`;
-    console.log("Fetching from:", apiUrl); // Debug log
+    // Try DexScreener first
+    const dexURL = `https://api.dexscreener.com/latest/dex/pairs/solana/${mintAddress}`;
+    console.log("Trying DexScreener:", dexURL);
 
     try {
-        const { data } = await axios.get(apiUrl);
-
-        if (!data || !data.pair) {
-            throw new Error('Token not found');
+        const { data } = await axios.get(dexURL);
+        if (data && data.pair) {
+            const pair = data.pair;
+            return {
+                name: pair.baseToken.name,
+                symbol: pair.baseToken.symbol,
+                liquidityUSD: pair.liquidity.usd,
+                holders: pair.pairCreatedAt,
+                score: pair.liquidity.usd > 10000 ? 20 : 0,
+                flags: pair.liquidity.usd > 10000 ? [] : ['Low liquidity'],
+                source: 'DexScreener'
+            };
         }
+    } catch (err) {
+        console.error("DexScreener error:", err.message);
+    }
 
-        const pair = data.pair;
+    // Fallback to Birdeye
+    const birdeyeURL = `https://public-api.birdeye.so/public/token/${mintAddress}`;
+    console.log("Falling back to Birdeye:", birdeyeURL);
 
-        const report = {
-            name: pair.baseToken.name,
-            symbol: pair.baseToken.symbol,
-            liquidityUSD: pair.liquidity.usd,
-            holders: pair.pairCreatedAt,
-            score: 0,
-            flags: [],
+    try {
+        const { data } = await axios.get(birdeyeURL, {
+            headers: { 'x-chain': 'solana' }
+        });
+
+        return {
+            name: data.name || 'Unknown',
+            symbol: data.symbol || '???',
+            liquidityUSD: data.liquidity?.usd || 0,
+            holders: data.holders || 0,
+            score: data.liquidity?.usd > 10000 ? 20 : 0,
+            flags: data.liquidity?.usd > 10000 ? [] : ['Low liquidity'],
+            source: 'Birdeye'
         };
 
-        if (pair.liquidity.usd > 10000) {
-            report.score += 20;
-        } else {
-            report.flags.push('Low liquidity');
-        }
-
-        return report;
     } catch (err) {
-        console.error("Fetch error:", err.message); // Debug log for error
-        throw err;
+        console.error("Birdeye error:", err.message);
+        return { error: "Token not found on DexScreener or Birdeye." };
     }
 }
 
