@@ -1,12 +1,11 @@
+const dotenv = require('dotenv');
+dotenv.config(); // MUST come first to load env variables
+
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const scanRoutes = require('./routes/scan');
 
-dotenv.config();
 const app = express();
-
-// IMPORTANT: No fallback port! Railway provides the port.
 const PORT = process.env.PORT;
 
 console.log("Detected PORT from environment:", PORT);
