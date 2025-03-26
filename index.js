@@ -6,7 +6,7 @@ const scanRoutes = require('./routes/scan');
 dotenv.config();
 const app = express();
 
-// Use only the port provided by Railway
+// IMPORTANT: No fallback port! Railway provides the port.
 const PORT = process.env.PORT;
 
 console.log("Detected PORT from environment:", PORT);
