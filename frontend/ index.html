@@ -1,265 +1,239 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>R5 Secure Token Checker</title>
-    <style>
-        body {
-            background-color: #121212;
-            font-family: Arial, sans-serif;
-            color: #ffffff;
-            margin: 0;
-            padding: 0;
-        }
-        header, .section, .token-card, .collapsible {
-            margin: 20px;
-        }
-        header {
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-        }
-        .top-banner {
-            background-color: #1e1e1e;
-            padding: 10px;
-            display: flex;
-            overflow-x: auto;
-            gap: 10px;
-        }
-        .top-token {
-            background-color: #333;
-            padding: 10px 15px;
-            border-radius: 10px;
-            white-space: nowrap;
-        }
-        .search-bar input, .wallet-bar input {
-            width: 90%;
-            padding: 10px;
-            border-radius: 8px;
-            border: none;
-            font-size: 16px;
-            margin: 10px auto;
-            display: block;
-        }
-        .button {
-            background-color: #14FFB9;
-            color: #000;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 10px auto;
-            display: block;
-        }
-        .section-title {
-            font-size: 18px;
-            margin-bottom: 10px;
-        }
-        .token-card {
-            background-color: #1e1e1e;
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-        .collapsible {
-            background-color: #1e1e1e;
-            border-radius: 8px;
-            padding: 10px;
-        }
-        .collapsible h3 {
-            cursor: pointer;
-        }
-        .content {
-            display: none;
-            padding: 10px 0;
-        }
-        footer {
-            padding: 20px;
-            text-align: center;
-            border-top: 1px solid #333;
-        }
-        #results {
-            margin: 20px;
-            background: #1e1e1e;
-            padding: 15px;
-            border-radius: 10px;
-            white-space: pre-wrap;
-            font-size: 14px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>R5 Secure Token Checker</title>
+  <style>
+    body {
+      background-color: #121212;
+      font-family: Arial, sans-serif;
+      color: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+    header, .section, .token-card, .collapsible {
+      margin: 20px;
+    }
+    header {
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .top-banner {
+      background-color: #1e1e1e;
+      padding: 10px;
+      display: flex;
+      overflow-x: auto;
+      gap: 10px;
+    }
+    .top-token {
+      background-color: #333;
+      padding: 10px 15px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+    .search-bar input, .wallet-bar input {
+      width: 90%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+      margin: 10px auto;
+      display: block;
+    }
+    .button {
+      background-color: #14FFB9;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px auto;
+      display: block;
+    }
+    .section-title {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .token-card {
+      background-color: #1e1e1e;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .collapsible {
+      background-color: #1e1e1e;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .collapsible h3 {
+      cursor: pointer;
+    }
+    .content {
+      display: none;
+      padding: 10px 0;
+    }
+    footer {
+      padding: 20px;
+      text-align: center;
+      border-top: 1px solid #333;
+    }
+  </style>
 </head>
 <body>
-    <header>R5 Secure Token Checker</header>
+  <header>R5 Secure Token Checker</header>
 
-    <div class="top-banner">
-        <div class="top-token">Token ABC - 89</div>
-        <div class="top-token">Token XYZ - 83</div>
-        <div class="top-token">Token LMN - 81</div>
-        <div class="top-token">Token DEF - 79</div>
-        <div class="top-token">Token QRS - 77</div>
+  <div class="top-banner">
+    <div class="top-token">Token ABC - 89</div>
+    <div class="top-token">Token XYZ - 83</div>
+    <div class="top-token">Token LMN - 81</div>
+    <div class="top-token">Token DEF - 79</div>
+    <div class="top-token">Token QRS - 77</div>
+  </div>
+
+  <div class="search-bar">
+    <input type="text" id="mintInput" placeholder="Enter Token ID or Mint Address">
+    <button class="button" onclick="scanToken()">Scan Token</button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Token ABC Safety Report</div>
+    <div class="token-card">Overall Score: <strong style="color: #14FFB9;">82</strong></div>
+
+    <div class="token-card">
+      <strong>Token Summary:</strong>
+      <p>This token shows a strong safety score of 82, with liquidity locked and ownership renounced. It has no blacklist functions or audit issues and appears to have clean developer wallet activity. However, 60% of supply is held by the top 5 wallets, which introduces a moderate centralization risk. Community sentiment and trust scores are positive, and no scam reports have been filed.</p>
     </div>
 
-    <div class="search-bar">
-        <input type="text" id="mintInput" placeholder="Enter Token ID or Mint Address">
-        <button class="button" onclick="scanToken()">Scan Token</button>
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Token History & Sentiment</h3>
+      <div class="content">
+        <p>Created: Mar 10, 2025</p>
+        <p>Sentiment: Positive</p>
+        <p><strong>Premium 🔒</strong> Historical Score Chart</p>
+      </div>
     </div>
 
-    <div id="results"></div>
-
-    <div class="section">
-        <div class="section-title">Token ABC Safety Report</div>
-        <div class="token-card">Overall Score: <strong style="color: #14FFB9;">82</strong></div>
-
-        <div class="token-card">
-            <strong>Token Summary:</strong>
-            <p>This token shows a strong safety score of 82, with liquidity locked and ownership renounced. It has no blacklist functions or audit issues and appears to have clean developer wallet activity. However, 60% of supply is held by the top 5 wallets, which introduces a moderate centralization risk. Community sentiment and trust scores are positive, and no scam reports have been filed.</p>
-        </div>
-
-        <div class="collapsible">
-            <h3 onclick="toggleContent(this)">Token History & Sentiment</h3>
-            <div class="content">
-                <p>Created: Mar 10, 2025</p>
-                <p>Sentiment: Positive</p>
-                <p><strong>Premium 🔒</strong> Historical Score Chart</p>
-            </div>
-        </div>
-
-        <div class="collapsible">
-            <h3 onclick="toggleContent(this)">Liquidity & Ownership</h3>
-            <div class="content">
-                <p>LP Locked: Until Jul 2025</p>
-                <p>Ownership: Renounced</p>
-            </div>
-        </div>
-
-        <div class="collapsible">
-            <h3 onclick="toggleContent(this)">Audit & Contract</h3>
-            <div class="content">
-                <p>Audit: Certik</p>
-                <p>Blacklist Function: None</p>
-                <p>KYC Status: Verified</p>
-            </div>
-        </div>
-
-        <div class="collapsible">
-            <h3 onclick="toggleContent(this)">Wallet Activity</h3>
-            <div class="content">
-                <p>Dev Wallet Activity: Clean</p>
-                <p><strong>Premium 🔒</strong> Influencer Activity</p>
-            </div>
-        </div>
-
-        <div class="collapsible">
-            <h3 onclick="toggleContent(this)">Holder Data</h3>
-            <div class="content">
-                <ul>
-                    <li>Wallet 1: 22% - 3xG...FaK1</li>
-                    <li>Wallet 2: 15% - 7kD...TjQ9</li>
-                    <li>Wallet 3: 10% - 4qA...XzL3</li>
-                    <li>Wallet 4: 8%  - 9vM...RtZ2</li>
-                    <li>Wallet 5: 5%  - 1eW...KyB7</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="collapsible">
-            <h3 onclick="toggleContent(this)">Community Reports</h3>
-            <div class="content">
-                <p>Trust Score: 90%</p>
-                <p>Scam Reports: None</p>
-                <button class="button" style="background-color: #28a745;" onclick="vote('support')">Support (<span id="supportCount">0</span>)</button>
-                <button class="button" style="background-color: #ffc107; color: black;" onclick="vote('unsure')">Unsure (<span id="unsureCount">0</span>)</button>
-                <button class="button" style="background-color: #dc3545;" onclick="vote('noSupport')">Don’t Support (<span id="noSupportCount">0</span>)</button>
-            </div>
-        </div>
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Liquidity & Ownership</h3>
+      <div class="content" id="liquidityContent">
+        <p>LP Locked: Until Jul 2025</p>
+        <p>Ownership: Renounced</p>
+      </div>
     </div>
 
-    <footer>
-        <div class="wallet-bar">
-            <input type="text" placeholder="Enter Wallet Address (Premium)">
-        </div>
-        <button class="button">Scan My Wallet</button>
-    </footer>
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Audit & Contract</h3>
+      <div class="content">
+        <p>Audit: Certik</p>
+        <p>Blacklist Function: None</p>
+        <p>KYC Status: Verified</p>
+      </div>
+    </div>
 
-<script>
-    <script>
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Wallet Activity</h3>
+      <div class="content">
+        <p>Dev Wallet Activity: Clean</p>
+        <p><strong>Premium 🔒</strong> Influencer Activity</p>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Holder Data</h3>
+      <div class="content">
+        <ul>
+          <li>Wallet 1: 22% - 3xG...FaK1</li>
+          <li>Wallet 2: 15% - 7kD...TjQ9</li>
+          <li>Wallet 3: 10% - 4qA...XzL3</li>
+          <li>Wallet 4: 8%  - 9vM...RtZ2</li>
+          <li>Wallet 5: 5%  - 1eW...KyB7</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Community Reports</h3>
+      <div class="content">
+        <p>Trust Score: 90%</p>
+        <p>Scam Reports: None</p>
+        <button class="button" style="background-color: #28a745;" onclick="vote('support')">Support (<span id="supportCount">0</span>)</button>
+        <button class="button" style="background-color: #ffc107; color: black;" onclick="vote('unsure')">Unsure (<span id="unsureCount">0</span>)</button>
+        <button class="button" style="background-color: #dc3545;" onclick="vote('noSupport')">Don’t Support (<span id="noSupportCount">0</span>)</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="wallet-bar">
+      <input type="text" placeholder="Enter Wallet Address (Premium)">
+    </div>
+    <button class="button">Scan My Wallet</button>
+  </footer>
+
+  <script>
     let support = 0, unsure = 0, noSupport = 0;
 
     function toggleContent(element) {
-        const content = element.nextElementSibling;
-        content.style.display = content.style.display === "block" ? "none" : "block";
+      const content = element.nextElementSibling;
+      content.style.display = content.style.display === "block" ? "none" : "block";
     }
 
     function vote(type) {
-        if (type === 'support') {
-            support++;
-            document.getElementById('supportCount').textContent = support;
-        } else if (type === 'unsure') {
-            unsure++;
-            document.getElementById('unsureCount').textContent = unsure;
-        } else if (type === 'noSupport') {
-            noSupport++;
-            document.getElementById('noSupportCount').textContent = noSupport;
-        }
+      if (type === 'support') {
+        support++;
+        document.getElementById('supportCount').textContent = support;
+      } else if (type === 'unsure') {
+        unsure++;
+        document.getElementById('unsureCount').textContent = unsure;
+      } else if (type === 'noSupport') {
+        noSupport++;
+        document.getElementById('noSupportCount').textContent = noSupport;
+      }
     }
 
     async function scanToken() {
-        const mint = document.getElementById('mintInput').value.trim();
-        const resultsDiv = document.getElementById('results');
+      const mint = document.getElementById('mintInput').value.trim();
+      if (!mint) return alert('❌ Please enter a mint address.');
 
-        if (!mint) {
-            resultsDiv.textContent = '❌ Please enter a mint address.';
-            return;
-        }
+      try {
+        const response = await fetch('http://localhost:5000/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mintAddress: mint })
+        });
 
-        resultsDiv.textContent = '🔍 Scanning...';
+        const data = await response.json();
+        const pair = data.pair || {};
+        const base = pair.baseToken || {};
+        const liquidity = pair.liquidity || {};
+        const volume = pair.volume || {};
+        const txns = pair.txns?.h24 || {};
+        const lockInfo = data.liquidityLock || {};
 
-        try {
-            const response = await fetch('http://localhost:5000/api/scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mintAddress: mint })
-            });
+        // Update section title and score
+        document.querySelector('.section-title').textContent = `${base.name || 'Unknown Token'} Safety Report`;
+        const score = liquidity.usd > 10000 ? 85 : 40;
+        document.querySelector('.token-card strong').textContent = score;
 
-            const data = await response.json();
-            resultsDiv.textContent = '';
+        // Update summary
+        const summary = document.querySelectorAll('.token-card')[1].querySelector('p');
+        summary.textContent = `${base.name || 'Token'} (${base.symbol || 'SYM'}) has $${liquidity.usd?.toLocaleString() || '0'} liquidity and $${volume.h24?.toLocaleString() || '0'} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}.`;
 
-            // Extract from DexScreener-style response
-            const pair = data.pair || {};
-            const base = pair.baseToken || {};
-            const liquidity = pair.liquidity || {};
-            const volume = pair.volume || {};
-            const txns = pair.txns?.h24 || {};
-            const lockInfo = data.liquidityLock || {};
-
-            const name = base.name || 'Unknown Token';
-            const symbol = base.symbol || 'N/A';
-            const score = liquidity.usd > 10000 ? 85 : 40; // Example score logic
-            const flagList = [];
-            if (liquidity.usd < 5000) flagList.push("⚠️ Low Liquidity");
-            if (volume.h24 < 10000) flagList.push("⚠️ Low Volume");
-
-            // Update UI
-            document.querySelector('.section-title').textContent = `${name} Safety Report`;
-            document.querySelector('.token-card strong').textContent = score;
-
-            const summaryCard = document.querySelectorAll('.token-card')[1].querySelector('p');
-            summaryCard.textContent = `${name} (${symbol}) has $${liquidity.usd?.toLocaleString() || 0} liquidity and $${volume.h24?.toLocaleString() || 0} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}. ${flagList.length ? flagList.join(' ') : '✅ Healthy activity.'}`;
-
-            // Liquidity & Ownership section
-            const liquiditySection = document.querySelectorAll('.collapsible')[1].querySelector('.content');
-            liquiditySection.innerHTML = `
-                <p>LP Locked: ${lockInfo.locked ? `Until ${new Date(lockInfo.until).toLocaleDateString()}` : '❌ Not Locked'}</p>
-                <p>Ownership: ${lockInfo.renounced ? 'Renounced' : 'Not Renounced'}</p>
-            `;
-        } catch (err) {
-            resultsDiv.textContent = '⚠️ Error connecting to local server.';
-            console.error(err);
-        }
+        // Update Liquidity section
+        const liquiditySection = document.getElementById('liquidityContent');
+        liquiditySection.innerHTML = `
+          <p>LP Locked: ${lockInfo.locked ? `✅ Until ${new Date(lockInfo.until).toLocaleDateString()}` : '❌ Not Locked'}</p>
+          <p>Ownership: ${lockInfo.renounced ? '✅ Renounced' : '❌ Not Renounced'}</p>
+        `;
+      } catch (err) {
+        alert('⚠️ Failed to fetch token data.');
+        console.error(err);
+      }
     }
-</script>
+  </script>
 </body>
 </html>
 
