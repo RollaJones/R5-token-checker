@@ -1,5 +1,5 @@
 const dotenv = require('dotenv');
-dotenv.config();
+dotenv.config(); // Load .env first
 console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
 
 const express = require('express');
@@ -12,10 +12,38 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 5000;
-const HELIUS_KEY = process.env.HELIUS_KEY;
 
-// GraphQL for Helius top holders
-const HELIUS_GRAPHQL_URL = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`;
+// ✅ Working function using Solana RPC
+async function fetchHoldersFromSolana(mintAddress) {
+  const url = 'https://api.mainnet-beta.solana.com';
+  const body = {
+    jsonrpc: '2.0',
+    id: 'r5-check',
+    method: 'getTokenLargestAccounts',
+    params: [mintAddress]
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    const valueList = data.result?.value || [];
+
+    const total = valueList.reduce((sum, acct) => sum + Number(acct.amount), 0);
+
+    return valueList.map((acct) => ({
+      address: acct.address,
+      percent: total ? ((Number(acct.amount) / total) * 100).toFixed(2) : 0
+    }));
+  } catch (err) {
+    console.error("❌ Error fetching holders from Solana RPC:", err);
+    return [];
+  }
+}
 
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
@@ -24,12 +52,12 @@ app.post('/api/scan', async (req, res) => {
   if (!mintAddress) return res.status(400).json({ error: 'Missing address' });
 
   try {
-    // --- DexScreener fetch ---
     const url = `https://api.dexscreener.com/latest/dex/pairs/solana/${mintAddress}`;
     console.log("🌐 Fetching from DexScreener:", url);
     const response = await fetch(url);
     const result = await response.json();
     const pair = result.pair;
+
     if (!pair) return res.status(404).json({ error: 'Pair not found' });
 
     const base = pair.baseToken || {};
@@ -39,45 +67,10 @@ app.post('/api/scan', async (req, res) => {
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
 
-    // --- Get Top Holders from Helius GraphQL ---
-    let holders = [];
-    try {
-      const graphqlQuery = {
-        query: `
-          query GetTokenRichList {
-            tokenRichList(limit: 10, mint: "${mintAddress}") {
-              owner
-              amount
-              percentage
-            }
-          }
-        `
-      };
+    // ✅ Fetch holders using Solana RPC
+    const holders = await fetchHoldersFromSolana(base.address);
 
-      const gqlRes = await fetch(HELIUS_GRAPHQL_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(graphqlQuery)
-      });
-
-      const gqlData = await gqlRes.json();
-      const richList = gqlData?.data?.tokenRichList;
-
-      if (Array.isArray(richList)) {
-        holders = richList.map(h => ({
-          address: h.owner,
-          percent: (h.percentage * 100).toFixed(2),
-          amount: h.amount
-        }));
-        console.log("✅ Top holders fetched:", holders.length);
-      } else {
-        console.warn("⚠️ No richList returned:", gqlData);
-      }
-    } catch (err) {
-      console.warn("⚠️ Failed to fetch holders:", err);
-    }
-
-    // --- SCORING ---
+    // === SCORING & FLAGS ===
     const flags = [];
     let score = 50;
 
@@ -116,9 +109,7 @@ app.post('/api/scan', async (req, res) => {
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
-    } else if (topHolderPercent > 10) {
-      score -= 5;
-    }
+    } else if (topHolderPercent > 10) score -= 5;
 
     if (result.audit === 'Certik') score += 5;
     else flags.push("No audit found");
@@ -184,6 +175,7 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const volStr = `$${Number(volume.h24 || 0).toLocaleString()}`;
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
+
   const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
   const chartLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
 
