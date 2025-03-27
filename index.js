@@ -13,9 +13,9 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 5000;
 
-// ✅ Working function using Solana RPC
-async function fetchHoldersFromSolana(mintAddress) {
-  const url = 'https://api.mainnet-beta.solana.com';
+// 🔧 Fetch holders using Helius API
+async function fetchHoldersFromHelius(mintAddress) {
+  const url = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_KEY}`;
   const body = {
     jsonrpc: '2.0',
     id: 'r5-check',
@@ -33,14 +33,15 @@ async function fetchHoldersFromSolana(mintAddress) {
     const data = await res.json();
     const valueList = data.result?.value || [];
 
+    // Get total supply
     const total = valueList.reduce((sum, acct) => sum + Number(acct.amount), 0);
 
-    return valueList.map((acct) => ({
+    return valueList.map((acct, i) => ({
       address: acct.address,
       percent: total ? ((Number(acct.amount) / total) * 100).toFixed(2) : 0
     }));
   } catch (err) {
-    console.error("❌ Error fetching holders from Solana RPC:", err);
+    console.error("❌ Error fetching from Helius:", err);
     return [];
   }
 }
@@ -67,13 +68,14 @@ app.post('/api/scan', async (req, res) => {
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
 
-    // ✅ Fetch holders using Solana RPC
-    const holders = await fetchHoldersFromSolana(base.address);
+    // Fetch holders from Helius
+    const holders = await fetchHoldersFromHelius(base.address);
 
     // === SCORING & FLAGS ===
     const flags = [];
     let score = 50;
 
+    // Liquidity Risk
     if (liquidity.usd > 20000) score += 10;
     else if (liquidity.usd >= 10000) {
       score += 3;
@@ -86,18 +88,21 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Very low liquidity");
     }
 
+    // LP Lock
     if (lockInfo.locked) score += 5;
     else {
       score -= 10;
       flags.push("LP not locked");
     }
 
+    // Ownership
     if (lockInfo.renounced) score += 10;
     else {
       score -= 10;
       flags.push("Ownership not renounced");
     }
 
+    // Volume
     if (volume.h24 > 100000) score += 10;
     else if (volume.h24 >= 25000) score += 5;
     else if (volume.h24 <= 10000) {
@@ -105,18 +110,21 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Low trading volume");
     }
 
+    // Top Holder Risk
     const topHolderPercent = holders[0]?.percent;
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
     } else if (topHolderPercent > 10) score -= 5;
 
+    // Audit / KYC
     if (result.audit === 'Certik') score += 5;
     else flags.push("No audit found");
 
     if (result.kyc === 'Verified') score += 5;
     else flags.push("KYC not verified");
 
+    // Dev Wallet Activity
     if (result.walletActivity === 'Clean') score += 5;
     else if (result.walletActivity === 'Suspicious') {
       score -= 10;
@@ -125,15 +133,18 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Dev wallet unknown");
     }
 
+    // Token Age
     const daysOld = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
     if (daysOld < 2) {
       score -= 5;
       flags.push("New token");
     }
 
+    // Final scoring pass
     score -= flags.length * 1.5;
     score = Math.max(0, Math.min(100, score));
 
+    // Grade
     let grade = 'F';
     if (score >= 90) grade = 'A';
     else if (score >= 75) grade = 'B';
@@ -179,7 +190,7 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
   const chartLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
 
-  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink} | ${chartLink}`;
+  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}  |  ${chartLink}`;
 
   if (flags.length > 0) {
     summary += `<br><br><strong>⚠️ Red Flags:</strong> ${flags.join(', ')}`;
