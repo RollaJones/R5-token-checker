@@ -1,5 +1,5 @@
 const dotenv = require('dotenv');
-dotenv.config(); // Load .env before anything else
+dotenv.config(); // Load .env first
 console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
 
 const express = require('express');
@@ -35,7 +35,6 @@ app.post('/api/scan', async (req, res) => {
     const holders = result.holders || [];
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
-    const pairAddress = pair.pairAddress;
 
     // === SCORING & FLAGS ===
     const flags = [];
@@ -91,14 +90,10 @@ app.post('/api/scan', async (req, res) => {
 
     // Audit / KYC
     if (result.audit === 'Certik') score += 5;
-    else {
-      flags.push("No audit found");
-    }
+    else flags.push("No audit found");
 
     if (result.kyc === 'Verified') score += 5;
-    else {
-      flags.push("KYC not verified");
-    }
+    else flags.push("KYC not verified");
 
     // Dev Wallet Activity
     if (result.walletActivity === 'Clean') {
@@ -147,7 +142,7 @@ app.post('/api/scan', async (req, res) => {
       pairCreatedAt: createdAt,
       flags,
       summary,
-      pairAddress
+      mintAddress
     });
 
   } catch (err) {
