@@ -125,11 +125,16 @@ app.post('/api/scan', async (req, res) => {
     else flags.push("KYC not verified");
 
     // Dev Wallet Activity
-    if (result.walletActivity === 'Clean') score += 5;
-    else if (result.walletActivity === 'Suspicious') {
+    let devActivityDisplay = '';
+    if (result.walletActivity === 'Clean') {
+      score += 5;
+      devActivityDisplay = 'Clean';
+    } else if (result.walletActivity === 'Suspicious') {
       score -= 10;
       flags.push("Dev wallet suspicious");
+      devActivityDisplay = 'Suspicious';
     } else {
+      devActivityDisplay = 'Unavailable – refer to Solscan owner section';
       flags.push("Dev wallet unknown");
     }
 
@@ -163,7 +168,7 @@ app.post('/api/scan', async (req, res) => {
       audit: result.audit || 'N/A',
       kyc: result.kyc || 'N/A',
       blacklistFunction: result.blacklistFunction || 'N/A',
-      walletActivity: result.walletActivity || 'Unknown',
+      walletActivity: devActivityDisplay,
       trustScore: result.trustScore || 'N/A',
       scamReports: result.scamReports || 'N/A',
       liquidityLock: lockInfo,
