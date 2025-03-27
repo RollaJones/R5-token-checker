@@ -100,7 +100,7 @@
 
   <div class="section">
     <div class="section-title">Token ABC Safety Report</div>
-    <div class="token-card">Overall Score: <strong style="color: #14FFB9;">82</strong></div>
+    <div class="token-card" id="scoreCard">Overall Score: <strong style="color: #14FFB9;">82</strong></div>
 
     <div class="token-card">
       <strong>Token Summary:</strong>
@@ -115,24 +115,24 @@
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Liquidity & Ownership</h3>
       <div class="content" id="liquidityContent">
-        <p>LP Locked: Loading...</p>
-        <p>Ownership: Loading...</p>
+        <p id="lpLock">LP Locked: Loading...</p>
+        <p id="ownershipStatus">Ownership: Loading...</p>
       </div>
     </div>
 
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Audit & Contract</h3>
       <div class="content">
-        <p>Audit: Loading...</p>
-        <p>Blacklist Function: Loading...</p>
-        <p>KYC Status: Loading...</p>
+        <p>Audit: <span id="auditStatus">Loading...</span></p>
+        <p>Blacklist Function: <span id="blacklistStatus">Loading...</span></p>
+        <p>KYC Status: <span id="kycStatus">Loading...</span></p>
       </div>
     </div>
 
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Wallet Activity</h3>
       <div class="content">
-        <p>Dev Wallet Activity: Loading...</p>
+        <p>Dev Wallet Activity: <span id="walletActivity">Loading...</span></p>
         <p><strong>Premium 🔒</strong> Influencer Activity</p>
       </div>
     </div>
@@ -149,8 +149,8 @@
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Community Reports</h3>
       <div class="content">
-        <p>Trust Score: Loading...</p>
-        <p>Scam Reports: Loading...</p>
+        <p>Trust Score: <span id="trustScore">Loading...</span></p>
+        <p>Scam Reports: <span id="scamReports">Loading...</span></p>
         <button class="button" style="background-color: #28a745;" onclick="vote('support')">Support (<span id="supportCount">0</span>)</button>
         <button class="button" style="background-color: #ffc107; color: black;" onclick="vote('unsure')">Unsure (<span id="unsureCount">0</span>)</button>
         <button class="button" style="background-color: #dc3545;" onclick="vote('noSupport')">Don’t Support (<span id="noSupportCount">0</span>)</button>
@@ -205,13 +205,17 @@
         const data = await response.json();
         console.log("📬 FULL API response:\n", JSON.stringify(data, null, 2));
 
-        // Update main summary info
-        document.querySelector('.section-title').textContent = `${data.name || 'Unknown Token'} Safety Report`;
-        document.querySelector('.token-card strong').textContent = data.score || 'N/A';
+        const pair = data.pair || {};
+        const base = pair.baseToken || {};
+        const txns = pair.txns?.h24 || {};
+        const volume = pair.volume || {};
+        const liquidity = pair.liquidity || {};
 
-        document.getElementById('tokenSummary').textContent = `${data.name || 'Token'} (${data.symbol || 'SYM'}) has $${Number(data.liquidityUSD || 0).toLocaleString()} liquidity. Source: ${data.source || 'N/A'}`;
+        document.querySelector('.section-title').textContent = `${base.name || data.name || 'Unknown Token'} Safety Report`;
+        document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
 
-        // Show flags if any
+        document.getElementById('tokenSummary').textContent = `${base.name || data.name || 'Token'} (${base.symbol || data.symbol || 'SYM'}) has $${Number(liquidity.usd || data.liquidityUSD || 0).toLocaleString()} liquidity and $${Number(volume.h24 || 0).toLocaleString()} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}`;
+
         const flagsCard = document.getElementById('flagsCard');
         const flagList = document.getElementById('flagList');
         if (data.flags && data.flags.length > 0) {
@@ -221,13 +225,22 @@
           flagsCard.style.display = 'none';
         }
 
-        // Populate Holder List (dummy placeholder or live data if supported)
         const holderList = document.getElementById('holderList');
-        holderList.innerHTML = data.holders && Array.isArray(data.holders) && data.holders.length
-          ? data.holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
+        const holders = data.holders || [];
+        holderList.innerHTML = Array.isArray(holders) && holders.length
+          ? holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
           : '<li>No holder data found.</li>';
 
-        // Future: Liquidity lock, audit, KYC, wallet activity, etc. to be dynamically populated
+        document.getElementById('lpLock').textContent = data.liquidityLock?.locked ? `LP Locked: ✅ Until ${new Date(data.liquidityLock.until).toLocaleDateString()}` : 'LP Locked: ❌ Not Locked';
+        document.getElementById('ownershipStatus').textContent = data.liquidityLock?.renounced ? 'Ownership: ✅ Renounced' : 'Ownership: ❌ Not Renounced';
+
+        document.getElementById('auditStatus').textContent = data.audit || 'N/A';
+        document.getElementById('blacklistStatus').textContent = data.blacklistFunction || 'N/A';
+        document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
+
+        document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
+        document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
+        document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
 
       } catch (err) {
         alert('⚠️ Failed to fetch token data.');
