@@ -24,8 +24,8 @@ app.post('/api/scan', async (req, res) => {
     console.log("🌐 Fetching from DexScreener:", url);
     const response = await fetch(url);
     const result = await response.json();
-    const pair = result.pair;
 
+    const pair = result.pairs ? result.pairs[0] : result.pair;
     if (!pair) return res.status(404).json({ error: 'Pair not found' });
 
     const base = pair.baseToken || {};
@@ -33,11 +33,10 @@ app.post('/api/scan', async (req, res) => {
     const volume = pair.volume || {};
     const txns = pair.txns?.h24 || {};
     const holders = result.holders || [];
-    const lockInfo = result.liquidityLock || {};
+    const lockInfo = pair.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
     const pairAddress = pair.pairAddress;
 
-    // === SCORING & FLAGS ===
     const flags = [];
     let score = 50;
 
@@ -58,7 +57,7 @@ app.post('/api/scan', async (req, res) => {
     if (lockInfo.locked) {
       score += 5;
     } else {
-      score -= 10;
+      score -= 15;
       flags.push("LP not locked");
     }
 
@@ -66,7 +65,7 @@ app.post('/api/scan', async (req, res) => {
     if (lockInfo.renounced) {
       score += 10;
     } else {
-      score -= 10;
+      score -= 15;
       flags.push("Ownership not renounced");
     }
 
@@ -80,7 +79,7 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Low trading volume");
     }
 
-    // Top Holder Risk
+    // Top Holder
     const topHolderPercent = Array.isArray(holders) && holders[0]?.percent;
     if (topHolderPercent > 20) {
       score -= 10;
@@ -91,14 +90,10 @@ app.post('/api/scan', async (req, res) => {
 
     // Audit / KYC
     if (result.audit === 'Certik') score += 5;
-    else {
-      flags.push("No audit found");
-    }
+    else flags.push("No audit found");
 
     if (result.kyc === 'Verified') score += 5;
-    else {
-      flags.push("KYC not verified");
-    }
+    else flags.push("KYC not verified");
 
     // Dev Wallet Activity
     if (result.walletActivity === 'Clean') {
@@ -117,7 +112,7 @@ app.post('/api/scan', async (req, res) => {
       flags.push("New token");
     }
 
-    // Final score logic
+    // Final score tweaks
     score -= flags.length * 1.5;
     score = Math.max(0, Math.min(100, score));
 
@@ -136,6 +131,8 @@ app.post('/api/scan', async (req, res) => {
       score,
       grade,
       liquidityUSD: liquidity.usd,
+      volumeUSD: volume.h24,
+      transactions: txns,
       holders,
       audit: result.audit || 'N/A',
       kyc: result.kyc || 'N/A',
@@ -147,6 +144,7 @@ app.post('/api/scan', async (req, res) => {
       pairCreatedAt: createdAt,
       flags,
       summary,
+      solscanLink: `https://solscan.io/account/${pairAddress}`,
       pairAddress
     });
 
