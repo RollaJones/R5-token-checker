@@ -75,7 +75,6 @@ app.post('/api/scan', async (req, res) => {
     const flags = [];
     let score = 50;
 
-    // Liquidity Risk
     if (liquidity.usd > 20000) score += 10;
     else if (liquidity.usd >= 10000) {
       score += 3;
@@ -88,21 +87,18 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Very low liquidity");
     }
 
-    // LP Lock
     if (lockInfo.locked) score += 5;
     else {
       score -= 10;
       flags.push("LP not locked");
     }
 
-    // Ownership
     if (lockInfo.renounced) score += 10;
     else {
       score -= 10;
       flags.push("Ownership not renounced");
     }
 
-    // Volume
     if (volume.h24 > 100000) score += 10;
     else if (volume.h24 >= 25000) score += 5;
     else if (volume.h24 <= 10000) {
@@ -110,46 +106,37 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Low trading volume");
     }
 
-    // Top Holder Risk
     const topHolderPercent = holders[0]?.percent;
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
     } else if (topHolderPercent > 10) score -= 5;
 
-    // Audit / KYC
-    if (result.audit === 'Certik') score += 5;
-    else flags.push("No audit found");
-
-    if (result.kyc === 'Verified') score += 5;
-    else flags.push("KYC not verified");
+    // Audit & KYC
+    const audit = result.audit || 'N/A';
+    const kyc = result.kyc || 'N/A';
+    if (audit === 'N/A') flags.push("No audit found");
+    if (kyc === 'N/A' || kyc === 'Not Verified') flags.push("KYC not verified");
 
     // Dev Wallet Activity
-    let devActivityDisplay = '';
-    if (result.walletActivity === 'Clean') {
-      score += 5;
-      devActivityDisplay = 'Clean';
-    } else if (result.walletActivity === 'Suspicious') {
+    let walletActivity = result.walletActivity || 'Unavailable – refer to Solscan owner section';
+    if (walletActivity === 'Clean') score += 5;
+    else if (walletActivity === 'Suspicious') {
       score -= 10;
       flags.push("Dev wallet suspicious");
-      devActivityDisplay = 'Suspicious';
-    } else {
-      devActivityDisplay = 'Unavailable – refer to Solscan owner section';
+    } else if (!walletActivity || walletActivity === 'Unknown') {
       flags.push("Dev wallet unknown");
     }
 
-    // Token Age
     const daysOld = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
     if (daysOld < 2) {
       score -= 5;
       flags.push("New token");
     }
 
-    // Final scoring pass
     score -= flags.length * 1.5;
     score = Math.max(0, Math.min(100, score));
 
-    // Grade
     let grade = 'F';
     if (score >= 90) grade = 'A';
     else if (score >= 75) grade = 'B';
@@ -165,10 +152,10 @@ app.post('/api/scan', async (req, res) => {
       grade,
       liquidityUSD: liquidity.usd,
       holders,
-      audit: result.audit || 'N/A',
-      kyc: result.kyc || 'N/A',
+      audit,
+      kyc,
       blacklistFunction: result.blacklistFunction || 'N/A',
-      walletActivity: devActivityDisplay,
+      walletActivity,
       trustScore: result.trustScore || 'N/A',
       scamReports: result.scamReports || 'N/A',
       liquidityLock: lockInfo,
