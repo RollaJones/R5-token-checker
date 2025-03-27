@@ -30,17 +30,18 @@ app.post('/api/scan', async (req, res) => {
     const liquidity = pair.liquidity || {};
     const volume = pair.volume || {};
     const txns = pair.txns?.h24 || {};
-    const holders = result.holders || []; // optional future update
-    const lockInfo = result.liquidityLock || {}; // optional future update
+    const holders = result.holders || [];
+    const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
+    const solscanLink = `https://solscan.io/token/${base.address}?cluster=mainnet`;
 
     // === SCORING ===
     const flags = [];
     let score = 50;
 
-    // Liquidity Risk
-    if (liquidity.usd > 20000) score += 10;
-    else if (liquidity.usd > 10000) score += 5;
+    // Liquidity
+    if (liquidity.usd >= 20000) score += 10;
+    else if (liquidity.usd >= 10000) score += 5;
     else if (liquidity.usd <= 5000) {
       score -= 10;
       flags.push("Low liquidity");
@@ -61,20 +62,20 @@ app.post('/api/scan', async (req, res) => {
     }
 
     // Volume
-    if (volume.h24 > 100000) score += 10;
-    else if (volume.h24 > 25000) score += 5;
+    if (volume.h24 >= 100000) score += 10;
+    else if (volume.h24 >= 25000) score += 5;
     else if (volume.h24 <= 10000) {
       score -= 5;
       flags.push("Low trading volume");
     }
 
-    // Top Holder Risk
+    // Top Holder
     const topHolderPercent = Array.isArray(holders) && holders[0]?.percent;
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
     } else if (topHolderPercent > 10) score -= 5;
-    else if (topHolderPercent <= 5) score += 5;
+    else score += 5;
 
     // Audit / KYC
     if (result.audit === 'Certik') score += 5;
@@ -87,27 +88,25 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Dev wallet suspicious");
     }
 
-    // Token Age
+    // Age of token
     const daysOld = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
     if (daysOld < 2) {
       score -= 5;
       flags.push("New token");
-    } else if (daysOld > 30) {
-      score += 2;
     }
 
-    // Final adjustment
+    // Final adjustments
     score -= flags.length * 2;
     score = Math.max(0, Math.min(100, score));
 
-    // Grade Assignment
+    // Grade
     let grade = 'F';
     if (score >= 90) grade = 'A';
     else if (score >= 75) grade = 'B';
     else if (score >= 60) grade = 'C';
     else if (score >= 45) grade = 'D';
 
-    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress);
+    const summary = generateSummary(base, liquidity, volume, txns, flags, solscanLink);
 
     res.json({
       name: base.name,
@@ -125,6 +124,7 @@ app.post('/api/scan', async (req, res) => {
       liquidityLock: lockInfo,
       pairCreatedAt: createdAt,
       flags,
+      solscan: solscanLink,
       summary
     });
 
@@ -134,19 +134,21 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-function generateSummary(base, liquidity, volume, txns, flags = [], mint) {
+function generateSummary(base, liquidity, volume, txns, flags = [], solscanLink = '') {
   const name = base.name || 'Token';
   const symbol = base.symbol || 'SYM';
   const liqStr = `$${Number(liquidity.usd || 0).toLocaleString()}`;
   const volStr = `$${Number(volume.h24 || 0).toLocaleString()}`;
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
-  const solscanLink = `https://solscan.io/token/${mint}`;
 
-  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}. View on Solscan: ${solscanLink}`;
-
+  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.`;
   if (flags.length > 0) {
-    summary += ` ⚠️ Red Flags: ${flags.join(', ')}`;
+    summary += ` ⚠️ Red Flags: ${flags.join(', ')}.`;
+  }
+
+  if (solscanLink) {
+    summary += `\n🔍 View on Solscan: ${solscanLink}`;
   }
 
   return summary;
