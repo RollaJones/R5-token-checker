@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -200,8 +200,9 @@
 
       const data = await response.json();
       console.log("📬 API response:", data);
+      console.log("🔎 Checking pair:", data.pair);
 
-      if (!data.pair) {
+      if (!data.pair || typeof data.pair !== 'object' || !data.pair.baseToken) {
         alert("⚠️ Token not found. Try using a valid pair address.");
         return;
       }
@@ -241,3 +242,4 @@
   </script>
 </body>
 </html>
+
