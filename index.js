@@ -14,6 +14,9 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT || 5000;
 const HELIUS_KEY = process.env.HELIUS_KEY;
 
+// GraphQL for Helius top holders
+const HELIUS_GRAPHQL_URL = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`;
+
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
   console.log("🔍 scanToken called");
@@ -21,12 +24,12 @@ app.post('/api/scan', async (req, res) => {
   if (!mintAddress) return res.status(400).json({ error: 'Missing address' });
 
   try {
+    // --- DexScreener fetch ---
     const url = `https://api.dexscreener.com/latest/dex/pairs/solana/${mintAddress}`;
     console.log("🌐 Fetching from DexScreener:", url);
     const response = await fetch(url);
     const result = await response.json();
     const pair = result.pair;
-
     if (!pair) return res.status(404).json({ error: 'Pair not found' });
 
     const base = pair.baseToken || {};
@@ -36,13 +39,13 @@ app.post('/api/scan', async (req, res) => {
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
 
-    // === Get Top Holders using Helius GraphQL ===
+    // --- Get Top Holders from Helius GraphQL ---
     let holders = [];
     try {
-      const gqlQuery = {
+      const graphqlQuery = {
         query: `
-          query GetTokenHolders {
-            tokenHolders(mint: "${mintAddress}", limit: 10) {
+          query GetTokenRichList {
+            tokenRichList(limit: 10, mint: "${mintAddress}") {
               owner
               amount
               percentage
@@ -51,30 +54,30 @@ app.post('/api/scan', async (req, res) => {
         `
       };
 
-      const gqlRes = await fetch("https://api.helius.xyz/graphql", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${HELIUS_KEY}`
-        },
-        body: JSON.stringify(gqlQuery)
+      const gqlRes = await fetch(HELIUS_GRAPHQL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(graphqlQuery)
       });
 
       const gqlData = await gqlRes.json();
-      const richList = gqlData?.data?.tokenHolders;
+      const richList = gqlData?.data?.tokenRichList;
 
       if (Array.isArray(richList)) {
         holders = richList.map(h => ({
           address: h.owner,
-          percent: (h.percentage * 100).toFixed(2)
+          percent: (h.percentage * 100).toFixed(2),
+          amount: h.amount
         }));
+        console.log("✅ Top holders fetched:", holders.length);
+      } else {
+        console.warn("⚠️ No richList returned:", gqlData);
       }
-
-    } catch (holderErr) {
-      console.warn("⚠️ Failed to fetch holders:", holderErr);
+    } catch (err) {
+      console.warn("⚠️ Failed to fetch holders:", err);
     }
 
-    // === SCORING & FLAGS ===
+    // --- SCORING ---
     const flags = [];
     let score = 50;
 
@@ -196,4 +199,3 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
 app.listen(PORT, () => {
   console.log(`✅ R5 Secure Token Checker API running on port ${PORT}`);
 });
-
