@@ -41,6 +41,7 @@ app.post('/api/scan', async (req, res) => {
     try {
       const holdersRes = await fetch(`https://api.helius.xyz/v0/token/${mintAddress}/rich-list?api-key=${HELIUS_KEY}`);
       const holdersData = await holdersRes.json();
+console.log("📦 Helius holders raw data:", holdersData);
       if (Array.isArray(holdersData)) {
         holders = holdersData.slice(0, 10).map(h => ({
           address: h.owner,
