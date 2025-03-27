@@ -43,6 +43,7 @@ app.post('/api/scan', async (req, res) => {
     } else if (liquidity.usd > 5000) {
       score -= 2;
       flags.push("Low liquidity");
+);
     } else {
       score -= 10;
       flags.push("Very low liquidity");
@@ -157,7 +158,7 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const volStr = `$${Number(volume.h24 || 0).toLocaleString()}`;
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
-  const solscanLink = `🔍 <a href="https://solscan.io/token/${mintAddress}" target="_blank">View on Solscan</a>`;
+  const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
 
   let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}`;
 
