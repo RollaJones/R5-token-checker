@@ -205,12 +205,10 @@
         const data = await response.json();
         console.log("📬 FULL API response:\n", JSON.stringify(data, null, 2));
 
-        const base = data.name || 'Unknown';
-        document.querySelector('.section-title').textContent = `${base} Safety Report`;
+        document.querySelector('.section-title').textContent = `${data.name || 'Unknown'} Safety Report`;
         document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
 
-        const summary = `${data.summary}`;
-        document.getElementById('tokenSummary').innerHTML = summary;
+        document.getElementById('tokenSummary').innerHTML = data.summary;
 
         const flagsCard = document.getElementById('flagsCard');
         const flagList = document.getElementById('flagList');
@@ -234,7 +232,7 @@
         document.getElementById('blacklistStatus').textContent = data.blacklistFunction || 'N/A';
         document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
 
-        document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
+        document.getElementById('walletActivity').textContent = data.walletActivity || 'Unavailable – refer to Solscan owner section';
         document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
         document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
 
@@ -246,3 +244,4 @@
   </script>
 </body>
 </html>
+
