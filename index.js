@@ -35,11 +35,13 @@ app.post('/api/scan', async (req, res) => {
     const holders = result.holders || [];
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
-    const pairAddress = pair.pairAddress || mintAddress;
+    const pairAddress = pair.pairAddress;
 
+    // === SCORING & FLAGS ===
     const flags = [];
     let score = 50;
 
+    // Liquidity Risk
     if (liquidity.usd > 20000) score += 10;
     else if (liquidity.usd >= 10000) {
       score += 3;
@@ -52,6 +54,7 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Very low liquidity");
     }
 
+    // LP Lock
     if (lockInfo.locked) {
       score += 5;
     } else {
@@ -59,6 +62,7 @@ app.post('/api/scan', async (req, res) => {
       flags.push("LP not locked");
     }
 
+    // Ownership
     if (lockInfo.renounced) {
       score += 10;
     } else {
@@ -66,6 +70,7 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Ownership not renounced");
     }
 
+    // Volume
     if (volume.h24 > 100000) {
       score += 10;
     } else if (volume.h24 >= 25000) {
@@ -75,6 +80,7 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Low trading volume");
     }
 
+    // Top Holder Risk
     const topHolderPercent = Array.isArray(holders) && holders[0]?.percent;
     if (topHolderPercent > 20) {
       score -= 10;
@@ -83,12 +89,18 @@ app.post('/api/scan', async (req, res) => {
       score -= 5;
     }
 
+    // Audit / KYC
     if (result.audit === 'Certik') score += 5;
-    else flags.push("No audit found");
+    else {
+      flags.push("No audit found");
+    }
 
     if (result.kyc === 'Verified') score += 5;
-    else flags.push("KYC not verified");
+    else {
+      flags.push("KYC not verified");
+    }
 
+    // Dev Wallet Activity
     if (result.walletActivity === 'Clean') {
       score += 5;
     } else if (result.walletActivity === 'Suspicious') {
@@ -98,22 +110,25 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Dev wallet unknown");
     }
 
+    // Token Age
     const daysOld = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
     if (daysOld < 2) {
       score -= 5;
       flags.push("New token");
     }
 
+    // Final score logic
     score -= flags.length * 1.5;
     score = Math.max(0, Math.min(100, score));
 
+    // Grade
     let grade = 'F';
     if (score >= 90) grade = 'A';
     else if (score >= 75) grade = 'B';
     else if (score >= 60) grade = 'C';
     else if (score >= 45) grade = 'D';
 
-    const summary = generateSummary(base, liquidity, volume, txns, flags, pairAddress);
+    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress);
 
     res.json({
       name: base.name,
@@ -148,7 +163,7 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const volStr = `$${Number(volume.h24 || 0).toLocaleString()}`;
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
-  const solscanLink = `🔍 <a href=\"https://solscan.io/account/${mintAddress}\" target=\"_blank\">View on Solscan</a>`;
+  const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
 
   let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}`;
 
