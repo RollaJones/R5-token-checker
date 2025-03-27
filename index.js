@@ -1,6 +1,5 @@
 const dotenv = require('dotenv');
-dotenv.config(); // Load environment variables from .env file
-console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
+dotenv.config(); // Load .env before anything else
 
 const express = require('express');
 const cors = require('cors');
@@ -15,13 +14,10 @@ const PORT = process.env.PORT || 5000;
 
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
-  console.log("🔍 scanToken called");
-
   if (!mintAddress) return res.status(400).json({ error: 'Missing address' });
 
   try {
     const url = `https://api.dexscreener.com/latest/dex/pairs/solana/${mintAddress}`;
-    console.log("🌐 Fetching from DexScreener:", url);
     const response = await fetch(url);
     const result = await response.json();
     const pair = result.pairs ? result.pairs[0] : null;
@@ -61,7 +57,7 @@ app.post('/api/scan', async (req, res) => {
     }
 
     // Ownership
-    if (pair.liquidity?.renounced) {
+    if (pair.ownership?.renounced) {
       score += 10;
     } else {
       score -= 10;
@@ -79,8 +75,7 @@ app.post('/api/scan', async (req, res) => {
     }
 
     // Top Holder Risk
-    const holders = []; // Placeholder for holder data
-    const topHolderPercent = holders.length > 0 ? holders[0].percent : 0;
+    const topHolderPercent = pair.holders?.[0]?.percent;
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
@@ -127,7 +122,7 @@ app.post('/api/scan', async (req, res) => {
     else if (score >= 60) grade = 'C';
     else if (score >= 45) grade = 'D';
 
-    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress, pairAddress);
+    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress);
 
     res.json({
       name: base.name,
@@ -135,7 +130,7 @@ app.post('/api/scan', async (req, res) => {
       score,
       grade,
       liquidityUSD: liquidity.usd,
-      holders,
+      holders: pair.holders || [],
       audit: pair.audit || 'N/A',
       kyc: pair.kyc || 'N/A',
       blacklistFunction: pair.blacklistFunction || 'N/A',
@@ -155,7 +150,7 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "", pairAddress = "") {
+function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "") {
   const name = base.name || 'Token';
   const symbol = base.symbol || 'SYM';
   const liqStr = `$${Number(liquidity.usd || 0).toLocaleString()}`;
@@ -163,9 +158,8 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
   const solscanLink = `🔍 <a href="https://solscan.io/token/${mintAddress}" target="_blank">View on Solscan</a>`;
-  const dexScreenerLink = `📈 <a href="https://dexscreener.com/solana/${pairAddress}" target="_blank">View on Dex Screener</a>`;
 
-  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}<br>${dexScreenerLink}`;
+  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}`;
 
   if (flags.length > 0) {
     summary += `<br><br><strong>⚠️ Red Flags:</strong> ${flags.join(', ')}`;
