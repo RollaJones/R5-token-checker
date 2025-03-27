@@ -99,12 +99,12 @@
   </div>
 
   <div class="section">
-    <div class="section-title">Token ABC Safety Report</div>
-    <div class="token-card" id="scoreCard">Overall Score: <strong style="color: #14FFB9;">82</strong></div>
+    <div class="section-title">Token Safety Report</div>
+    <div class="token-card" id="scoreCard">Overall Score: <strong style="color: #14FFB9;">N/A</strong></div>
 
     <div class="token-card">
       <strong>Token Summary:</strong>
-      <p id="tokenSummary">This token shows a strong safety score of 82...</p>
+      <p id="tokenSummary">...</p>
     </div>
 
     <div class="token-card" id="flagsCard" style="display: none;">
@@ -124,8 +124,8 @@
       <h3 onclick="toggleContent(this)">Audit & Contract</h3>
       <div class="content">
         <p>Audit: <span id="auditStatus">Loading...</span></p>
-        <p>Blacklist Function: <span id="blacklistStatus">Loading...</span></p>
         <p>KYC Status: <span id="kycStatus">Loading...</span></p>
+        <p>Blacklist Function: <span id="blacklistStatus">Planned Feature</span></p>
       </div>
     </div>
 
@@ -133,7 +133,7 @@
       <h3 onclick="toggleContent(this)">Wallet Activity</h3>
       <div class="content">
         <p>Dev Wallet Activity: <span id="walletActivity">Loading...</span></p>
-        <p><strong>Premium 🔒</strong> Influencer Activity</p>
+        <p><strong>Note:</strong> If dev wallet is unavailable, please refer to the token owner section on <a href="#" target="_blank" id="fallbackSolscan">Solscan</a>.</p>
       </div>
     </div>
 
@@ -193,7 +193,6 @@
     async function scanToken() {
       const mint = document.getElementById('mintInput').value.trim();
       if (!mint) return alert('❌ Please enter a mint or pair address.');
-      console.log("📦 Sending request for:", mint);
 
       try {
         const response = await fetch('http://localhost:5000/api/scan', {
@@ -203,12 +202,9 @@
         });
 
         const data = await response.json();
-        console.log("📬 FULL API response:\n", JSON.stringify(data, null, 2));
-
-        document.querySelector('.section-title').textContent = `${data.name || 'Unknown'} Safety Report`;
+        document.querySelector('.section-title').textContent = `${data.name || 'Token'} Safety Report`;
         document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
-
-        document.getElementById('tokenSummary').innerHTML = data.summary;
+        document.getElementById('tokenSummary').innerHTML = data.summary || 'No summary available.';
 
         const flagsCard = document.getElementById('flagsCard');
         const flagList = document.getElementById('flagList');
@@ -221,7 +217,7 @@
 
         const holderList = document.getElementById('holderList');
         const holders = data.holders || [];
-        holderList.innerHTML = Array.isArray(holders) && holders.length
+        holderList.innerHTML = holders.length
           ? holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
           : '<li>No holder data found.</li>';
 
@@ -229,13 +225,12 @@
         document.getElementById('ownershipStatus').textContent = data.liquidityLock?.renounced ? 'Ownership: ✅ Renounced' : 'Ownership: ❌ Not Renounced';
 
         document.getElementById('auditStatus').textContent = data.audit || 'N/A';
-        document.getElementById('blacklistStatus').textContent = data.blacklistFunction || 'N/A';
         document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
+        document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
 
-        document.getElementById('walletActivity').textContent = data.walletActivity || 'Unavailable – refer to Solscan owner section';
         document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
         document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
-
+        document.getElementById('fallbackSolscan').href = `https://solscan.io/account/${data.mintAddress}`;
       } catch (err) {
         alert('⚠️ Failed to fetch token data.');
         console.error(err);
@@ -244,4 +239,3 @@
   </script>
 </body>
 </html>
-
