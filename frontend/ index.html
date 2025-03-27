@@ -215,7 +215,8 @@
         document.querySelector('.section-title').textContent = `${base.name || data.name || 'Unknown Token'} Safety Report`;
         document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
 
-        document.getElementById('tokenSummary').textContent = `${base.name || data.name || 'Token'} (${base.symbol || data.symbol || 'SYM'}) has $${Number(liquidity.usd || data.liquidityUSD || 0).toLocaleString()} liquidity and $${Number(volume.h24 || 0).toLocaleString()} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}`;
+        document.getElementById('tokenSummary').textContent =
+          `${base.name || data.name || 'Token'} (${base.symbol || data.symbol || 'SYM'}) has $${Number(liquidity.usd || 0).toLocaleString()} liquidity and $${Number(volume.h24 || 0).toLocaleString()} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}`;
 
         const flagsCard = document.getElementById('flagsCard');
         const flagList = document.getElementById('flagList');
