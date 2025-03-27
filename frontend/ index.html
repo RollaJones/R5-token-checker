@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>R5 Secure Token Checker</title>
   <style>
     body {
@@ -75,13 +75,6 @@
       display: none;
       padding: 10px 0;
     }
-    iframe {
-      width: 100%;
-      border: none;
-      height: 400px;
-      border-radius: 8px;
-      margin-top: 10px;
-    }
     footer {
       padding: 20px;
       text-align: center;
@@ -106,13 +99,12 @@
   </div>
 
   <div class="section">
-    <div class="section-title">Token Safety Report</div>
-    <div class="token-card" id="scoreCard">Overall Score: <strong style="color: #14FFB9;">N/A</strong></div>
+    <div class="section-title">Token ABC Safety Report</div>
+    <div class="token-card" id="scoreCard">Overall Score: <strong style="color: #14FFB9;">82</strong></div>
 
     <div class="token-card">
       <strong>Token Summary:</strong>
-      <p id="tokenSummary">No token scanned yet.</p>
-      <div id="dexscreenerChart"></div>
+      <p id="tokenSummary">This token shows a strong safety score of 82...</p>
     </div>
 
     <div class="token-card" id="flagsCard" style="display: none;">
@@ -186,13 +178,16 @@
     }
 
     function vote(type) {
-      if (type === 'support') support++;
-      else if (type === 'unsure') unsure++;
-      else if (type === 'noSupport') noSupport++;
-
-      document.getElementById('supportCount').textContent = support;
-      document.getElementById('unsureCount').textContent = unsure;
-      document.getElementById('noSupportCount').textContent = noSupport;
+      if (type === 'support') {
+        support++;
+        document.getElementById('supportCount').textContent = support;
+      } else if (type === 'unsure') {
+        unsure++;
+        document.getElementById('unsureCount').textContent = unsure;
+      } else if (type === 'noSupport') {
+        noSupport++;
+        document.getElementById('noSupportCount').textContent = noSupport;
+      }
     }
 
     async function scanToken() {
@@ -210,21 +205,15 @@
         const data = await response.json();
         console.log("📬 FULL API response:\n", JSON.stringify(data, null, 2));
 
-        const base = data.name || 'Token';
-        const symbol = data.symbol || 'SYM';
-        const liquidity = data.liquidityUSD || 0;
-        const volume = data.volume || 0;
-        const txns = data.txns || { buys: 0, sells: 0 };
-
+        const base = data.name || 'Unknown';
         document.querySelector('.section-title').textContent = `${base} Safety Report`;
         document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
 
-        const solscanUrl = `https://solscan.io/token/${data.address || ''}`;
-        const summary = `${base} (${symbol}) has $${Number(liquidity).toLocaleString()} liquidity and $${Number(volume).toLocaleString()} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}. <br><a href="${solscanUrl}" target="_blank" style="color:#14FFB9;">🔍 View on Solscan</a>`;
+        const summary = `${data.summary}`;
         document.getElementById('tokenSummary').innerHTML = summary;
 
-        const flagList = document.getElementById('flagList');
         const flagsCard = document.getElementById('flagsCard');
+        const flagList = document.getElementById('flagList');
         if (data.flags && data.flags.length > 0) {
           flagList.innerHTML = data.flags.map(f => `<li>${f}</li>`).join('');
           flagsCard.style.display = 'block';
@@ -238,23 +227,16 @@
           ? holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
           : '<li>No holder data found.</li>';
 
-        document.getElementById('lpLock').textContent = data.liquidityLock?.locked
-          ? `LP Locked: ✅ Until ${new Date(data.liquidityLock.until).toLocaleDateString()}`
-          : 'LP Locked: ❌ Not Locked';
-
-        document.getElementById('ownershipStatus').textContent = data.liquidityLock?.renounced
-          ? 'Ownership: ✅ Renounced'
-          : 'Ownership: ❌ Not Renounced';
+        document.getElementById('lpLock').textContent = data.liquidityLock?.locked ? `LP Locked: ✅ Until ${new Date(data.liquidityLock.until).toLocaleDateString()}` : 'LP Locked: ❌ Not Locked';
+        document.getElementById('ownershipStatus').textContent = data.liquidityLock?.renounced ? 'Ownership: ✅ Renounced' : 'Ownership: ❌ Not Renounced';
 
         document.getElementById('auditStatus').textContent = data.audit || 'N/A';
         document.getElementById('blacklistStatus').textContent = data.blacklistFunction || 'N/A';
         document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
+
         document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
         document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
         document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
-
-        const chartDiv = document.getElementById('dexscreenerChart');
-        chartDiv.innerHTML = `<iframe src="https://dexscreener.com/solana/${mint}" allowfullscreen></iframe>`;
 
       } catch (err) {
         alert('⚠️ Failed to fetch token data.');
