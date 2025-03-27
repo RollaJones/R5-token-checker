@@ -104,16 +104,7 @@
 
     <div class="token-card">
       <strong>Token Summary:</strong>
-      <p>This token shows a strong safety score of 82, with liquidity locked and ownership renounced. It has no blacklist functions or audit issues and appears to have clean developer wallet activity. However, 60% of supply is held by the top 5 wallets, which introduces a moderate centralization risk. Community sentiment and trust scores are positive, and no scam reports have been filed.</p>
-    </div>
-
-    <div class="collapsible">
-      <h3 onclick="toggleContent(this)">Token History & Sentiment</h3>
-      <div class="content">
-        <p>Created: Mar 10, 2025</p>
-        <p>Sentiment: Positive</p>
-        <p><strong>Premium 🔒</strong> Historical Score Chart</p>
-      </div>
+      <p id="tokenSummary">This token shows a strong safety score of 82, with liquidity locked and ownership renounced. It has no blacklist functions or audit issues and appears to have clean developer wallet activity. However, 60% of supply is held by the top 5 wallets, which introduces a moderate centralization risk. Community sentiment and trust scores are positive, and no scam reports have been filed.</p>
     </div>
 
     <div class="collapsible">
@@ -213,15 +204,13 @@
         const txns = pair.txns?.h24 || {};
         const lockInfo = data.liquidityLock || {};
 
-        // Update section title and score
         document.querySelector('.section-title').textContent = `${base.name || 'Unknown Token'} Safety Report`;
         const score = liquidity.usd > 10000 ? 85 : 40;
         document.querySelector('.token-card strong').textContent = score;
 
-        // Update summary
-        const summary = document.querySelectorAll('.token-card')[1].querySelector('p');
+        const summary = document.getElementById('tokenSummary');
         summary.textContent = `${base.name || 'Token'} (${base.symbol || 'SYM'}) has $${Number(liquidity.usd || 0).toLocaleString()} liquidity and $${Number(volume.h24 || 0).toLocaleString()} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}.`;
-        // Update Liquidity section
+
         const liquiditySection = document.getElementById('liquidityContent');
         liquiditySection.innerHTML = `
           <p>LP Locked: ${lockInfo.locked ? `✅ Until ${new Date(lockInfo.until).toLocaleDateString()}` : '❌ Not Locked'}</p>
