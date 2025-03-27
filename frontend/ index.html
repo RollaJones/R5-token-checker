@@ -220,8 +220,7 @@
 
         // Update summary
         const summary = document.querySelectorAll('.token-card')[1].querySelector('p');
-        summary.textContent = `${base.name || 'Token'} (${base.symbol || 'SYM'}) has $${liquidity.usd?.toLocaleString() || '0'} liquidity and $${volume.h24?.toLocaleString() || '0'} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}.`;
-
+        summary.textContent = `${base.name || 'Token'} (${base.symbol || 'SYM'}) has $${Number(liquidity.usd || 0).toLocaleString()} liquidity and $${Number(volume.h24 || 0).toLocaleString()} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}.`;
         // Update Liquidity section
         const liquiditySection = document.getElementById('liquidityContent');
         liquiditySection.innerHTML = `
