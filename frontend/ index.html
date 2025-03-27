@@ -199,8 +199,7 @@
       });
 
       const data = await response.json();
-      console.log("📬 API response:", data);
-      console.log("🔎 Checking pair:", data.pair);
+      console.log("📬 FULL API response:\n", JSON.stringify(data, null, 2));
 
       if (!data.pair || typeof data.pair !== 'object' || !data.pair.baseToken) {
         alert("⚠️ Token not found. Try using a valid pair address.");
