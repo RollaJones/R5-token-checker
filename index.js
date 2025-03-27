@@ -1,5 +1,5 @@
 const dotenv = require('dotenv');
-dotenv.config(); // Load .env before anything else
+dotenv.config(); // Load environment variables from .env file
 console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
 
 const express = require('express');
@@ -24,19 +24,18 @@ app.post('/api/scan', async (req, res) => {
     console.log("🌐 Fetching from DexScreener:", url);
     const response = await fetch(url);
     const result = await response.json();
+    const pair = result.pairs ? result.pairs[0] : null;
 
-    const pair = result.pairs ? result.pairs[0] : result.pair;
     if (!pair) return res.status(404).json({ error: 'Pair not found' });
 
     const base = pair.baseToken || {};
     const liquidity = pair.liquidity || {};
     const volume = pair.volume || {};
     const txns = pair.txns?.h24 || {};
-    const holders = result.holders || [];
-    const lockInfo = pair.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
     const pairAddress = pair.pairAddress;
 
+    // === SCORING & FLAGS ===
     const flags = [];
     let score = 50;
 
@@ -54,18 +53,18 @@ app.post('/api/scan', async (req, res) => {
     }
 
     // LP Lock
-    if (lockInfo.locked) {
+    if (pair.liquidity?.locked) {
       score += 5;
     } else {
-      score -= 15;
+      score -= 10;
       flags.push("LP not locked");
     }
 
     // Ownership
-    if (lockInfo.renounced) {
+    if (pair.liquidity?.renounced) {
       score += 10;
     } else {
-      score -= 15;
+      score -= 10;
       flags.push("Ownership not renounced");
     }
 
@@ -79,8 +78,9 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Low trading volume");
     }
 
-    // Top Holder
-    const topHolderPercent = Array.isArray(holders) && holders[0]?.percent;
+    // Top Holder Risk
+    const holders = []; // Placeholder for holder data
+    const topHolderPercent = holders.length > 0 ? holders[0].percent : 0;
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
@@ -89,16 +89,20 @@ app.post('/api/scan', async (req, res) => {
     }
 
     // Audit / KYC
-    if (result.audit === 'Certik') score += 5;
-    else flags.push("No audit found");
+    if (pair.audit === 'Certik') score += 5;
+    else {
+      flags.push("No audit found");
+    }
 
-    if (result.kyc === 'Verified') score += 5;
-    else flags.push("KYC not verified");
+    if (pair.kyc === 'Verified') score += 5;
+    else {
+      flags.push("KYC not verified");
+    }
 
     // Dev Wallet Activity
-    if (result.walletActivity === 'Clean') {
+    if (pair.walletActivity === 'Clean') {
       score += 5;
-    } else if (result.walletActivity === 'Suspicious') {
+    } else if (pair.walletActivity === 'Suspicious') {
       score -= 10;
       flags.push("Dev wallet suspicious");
     } else {
@@ -112,7 +116,7 @@ app.post('/api/scan', async (req, res) => {
       flags.push("New token");
     }
 
-    // Final score tweaks
+    // Final score logic
     score -= flags.length * 1.5;
     score = Math.max(0, Math.min(100, score));
 
@@ -123,7 +127,7 @@ app.post('/api/scan', async (req, res) => {
     else if (score >= 60) grade = 'C';
     else if (score >= 45) grade = 'D';
 
-    const summary = generateSummary(base, liquidity, volume, txns, flags, pairAddress);
+    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress);
 
     res.json({
       name: base.name,
@@ -131,20 +135,17 @@ app.post('/api/scan', async (req, res) => {
       score,
       grade,
       liquidityUSD: liquidity.usd,
-      volumeUSD: volume.h24,
-      transactions: txns,
       holders,
-      audit: result.audit || 'N/A',
-      kyc: result.kyc || 'N/A',
-      blacklistFunction: result.blacklistFunction || 'N/A',
-      walletActivity: result.walletActivity || 'Unknown',
-      trustScore: result.trustScore || 'N/A',
-      scamReports: result.scamReports || 'N/A',
-      liquidityLock: lockInfo,
+      audit: pair.audit || 'N/A',
+      kyc: pair.kyc || 'N/A',
+      blacklistFunction: pair.blacklistFunction || 'N/A',
+      walletActivity: pair.walletActivity || 'Unknown',
+      trustScore: pair.trustScore || 'N/A',
+      scamReports: pair.scamReports || 'N/A',
+      liquidityLock: pair.liquidity?.locked || false,
       pairCreatedAt: createdAt,
       flags,
       summary,
-      solscanLink: `https://solscan.io/account/${pairAddress}`,
       pairAddress
     });
 
@@ -154,14 +155,14 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-function generateSummary(base, liquidity, volume, txns, flags = [], pairAddress = "") {
+function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "") {
   const name = base.name || 'Token';
   const symbol = base.symbol || 'SYM';
   const liqStr = `$${Number(liquidity.usd || 0).toLocaleString()}`;
   const volStr = `$${Number(volume.h24 || 0).toLocaleString()}`;
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
-  const solscanLink = `🔍 <a href="https://solscan.io/account/${pairAddress}" target="_blank">View on Solscan</a>`;
+  const solscanLink = `🔍 <a href="https://solscan.io/token/${mintAddress}" target="_blank">View on Solscan</a>`;
 
   let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}`;
 
