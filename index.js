@@ -12,39 +12,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 5000;
-
-// 🔧 Fetch holders using Helius API
-async function fetchHoldersFromHelius(mintAddress) {
-  const url = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_KEY}`;
-  const body = {
-    jsonrpc: '2.0',
-    id: 'r5-check',
-    method: 'getTokenLargestAccounts',
-    params: [mintAddress]
-  };
-
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-
-    const data = await res.json();
-    const valueList = data.result?.value || [];
-
-    // Get total supply
-    const total = valueList.reduce((sum, acct) => sum + Number(acct.amount), 0);
-
-    return valueList.map((acct, i) => ({
-      address: acct.address,
-      percent: total ? ((Number(acct.amount) / total) * 100).toFixed(2) : 0
-    }));
-  } catch (err) {
-    console.error("❌ Error fetching from Helius:", err);
-    return [];
-  }
-}
+const HELIUS_KEY = process.env.HELIUS_KEY;
 
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
@@ -65,14 +33,42 @@ app.post('/api/scan', async (req, res) => {
     const liquidity = pair.liquidity || {};
     const volume = pair.volume || {};
     const txns = pair.txns?.h24 || {};
+    const holders = result.holders || [];
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
 
-    // Fetch holders from Helius
-    const holders = await fetchHoldersFromHelius(base.address);
+    // === Helius Dev Wallet Scan ===
+    const heliusUrl = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`;
+    const heliusResponse = await fetch(heliusUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'r5-dev-check',
+        method: 'getAsset',
+        params: { id: mintAddress }
+      })
+    });
+    const heliusData = await heliusResponse.json();
+    const asset = heliusData.result || {};
+    const devWallet = asset?.ownership?.owner || 'Unknown';
+    const mutable = asset.mutable;
+
+    let walletActivityLabel = 'Unknown';
+    const devFlags = [];
+    if (devWallet !== 'Unknown') {
+      if (mutable) {
+        walletActivityLabel = '⚠️ Dev can modify token (mutable)';
+        devFlags.push("Creator wallet can still modify token state");
+      } else {
+        walletActivityLabel = '✅ Immutable — safer';
+      }
+    } else {
+      devFlags.push("Creator wallet unknown");
+    }
 
     // === SCORING & FLAGS ===
-    const flags = [];
+    const flags = [...devFlags];
     let score = 50;
 
     // Liquidity Risk
@@ -89,33 +85,39 @@ app.post('/api/scan', async (req, res) => {
     }
 
     // LP Lock
-    if (lockInfo.locked) score += 5;
-    else {
+    if (lockInfo.locked) {
+      score += 5;
+    } else {
       score -= 10;
       flags.push("LP not locked");
     }
 
     // Ownership
-    if (lockInfo.renounced) score += 10;
-    else {
+    if (lockInfo.renounced) {
+      score += 10;
+    } else {
       score -= 10;
       flags.push("Ownership not renounced");
     }
 
     // Volume
-    if (volume.h24 > 100000) score += 10;
-    else if (volume.h24 >= 25000) score += 5;
-    else if (volume.h24 <= 10000) {
+    if (volume.h24 > 100000) {
+      score += 10;
+    } else if (volume.h24 >= 25000) {
+      score += 5;
+    } else if (volume.h24 <= 10000) {
       score -= 5;
       flags.push("Low trading volume");
     }
 
     // Top Holder Risk
-    const topHolderPercent = holders[0]?.percent;
+    const topHolderPercent = Array.isArray(holders) && holders[0]?.percent;
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
-    } else if (topHolderPercent > 10) score -= 5;
+    } else if (topHolderPercent > 10) {
+      score -= 5;
+    }
 
     // Audit / KYC
     if (result.audit === 'Certik') score += 5;
@@ -124,14 +126,9 @@ app.post('/api/scan', async (req, res) => {
     if (result.kyc === 'Verified') score += 5;
     else flags.push("KYC not verified");
 
-    // Dev Wallet Activity
-    if (result.walletActivity === 'Clean') score += 5;
-    else if (result.walletActivity === 'Suspicious') {
-      score -= 10;
-      flags.push("Dev wallet suspicious");
-    } else {
-      flags.push("Dev wallet unknown");
-    }
+    // Dev Wallet Activity Flag
+    if (walletActivityLabel.includes('⚠️')) score -= 10;
+    if (walletActivityLabel.includes('✅')) score += 5;
 
     // Token Age
     const daysOld = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
@@ -140,7 +137,7 @@ app.post('/api/scan', async (req, res) => {
       flags.push("New token");
     }
 
-    // Final scoring pass
+    // Final score logic
     score -= flags.length * 1.5;
     score = Math.max(0, Math.min(100, score));
 
@@ -163,7 +160,7 @@ app.post('/api/scan', async (req, res) => {
       audit: result.audit || 'N/A',
       kyc: result.kyc || 'N/A',
       blacklistFunction: result.blacklistFunction || 'N/A',
-      walletActivity: result.walletActivity || 'Unknown',
+      walletActivity: walletActivityLabel,
       trustScore: result.trustScore || 'N/A',
       scamReports: result.scamReports || 'N/A',
       liquidityLock: lockInfo,
@@ -186,7 +183,6 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const volStr = `$${Number(volume.h24 || 0).toLocaleString()}`;
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
-
   const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
   const chartLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
 
