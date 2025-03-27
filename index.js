@@ -12,7 +12,6 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 5000;
-const HELIUS_KEY = process.env.HELIUS_KEY;
 
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
@@ -36,39 +35,10 @@ app.post('/api/scan', async (req, res) => {
     const holders = result.holders || [];
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
-
-    // === Helius Dev Wallet Scan ===
-    const heliusUrl = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`;
-    const heliusResponse = await fetch(heliusUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 'r5-dev-check',
-        method: 'getAsset',
-        params: { id: mintAddress }
-      })
-    });
-    const heliusData = await heliusResponse.json();
-    const asset = heliusData.result || {};
-    const devWallet = asset?.ownership?.owner || 'Unknown';
-    const mutable = asset.mutable;
-
-    let walletActivityLabel = 'Unknown';
-    const devFlags = [];
-    if (devWallet !== 'Unknown') {
-      if (mutable) {
-        walletActivityLabel = '⚠️ Dev can modify token (mutable)';
-        devFlags.push("Creator wallet can still modify token state");
-      } else {
-        walletActivityLabel = '✅ Immutable — safer';
-      }
-    } else {
-      devFlags.push("Creator wallet unknown");
-    }
+    const chartURL = pair.url || null;
 
     // === SCORING & FLAGS ===
-    const flags = [...devFlags];
+    const flags = [];
     let score = 50;
 
     // Liquidity Risk
@@ -126,9 +96,19 @@ app.post('/api/scan', async (req, res) => {
     if (result.kyc === 'Verified') score += 5;
     else flags.push("KYC not verified");
 
-    // Dev Wallet Activity Flag
-    if (walletActivityLabel.includes('⚠️')) score -= 10;
-    if (walletActivityLabel.includes('✅')) score += 5;
+    // Dev Wallet Activity
+    let walletActivityLabel = 'Unknown';
+    if (result.walletActivity === 'Clean') {
+      score += 5;
+      walletActivityLabel = 'Clean';
+    } else if (result.walletActivity === 'Suspicious') {
+      score -= 10;
+      walletActivityLabel = 'Suspicious';
+      flags.push("Dev wallet suspicious");
+    } else {
+      flags.push("Dev wallet unknown");
+      walletActivityLabel = 'Unavailable – refer to Solscan owner section';
+    }
 
     // Token Age
     const daysOld = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
@@ -148,7 +128,7 @@ app.post('/api/scan', async (req, res) => {
     else if (score >= 60) grade = 'C';
     else if (score >= 45) grade = 'D';
 
-    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress);
+    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress, chartURL);
 
     res.json({
       name: base.name,
@@ -167,7 +147,8 @@ app.post('/api/scan', async (req, res) => {
       pairCreatedAt: createdAt,
       flags,
       summary,
-      mintAddress
+      mintAddress,
+      chartURL
     });
 
   } catch (err) {
@@ -176,7 +157,7 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "") {
+function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "", chartURL = "") {
   const name = base.name || 'Token';
   const symbol = base.symbol || 'SYM';
   const liqStr = `$${Number(liquidity.usd || 0).toLocaleString()}`;
@@ -184,9 +165,9 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
   const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
-  const chartLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
+  const chartLink = chartURL ? ` | 📊 <a href="${chartURL}" target="_blank">View Chart</a>` : '';
 
-  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}  |  ${chartLink}`;
+  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}${chartLink}`;
 
   if (flags.length > 0) {
     summary += `<br><br><strong>⚠️ Red Flags:</strong> ${flags.join(', ')}`;
