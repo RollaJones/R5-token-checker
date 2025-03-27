@@ -1,4 +1,3 @@
-// Updated index.js with Helius GraphQL for holder data
 const dotenv = require('dotenv');
 dotenv.config();
 console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
@@ -37,32 +36,17 @@ app.post('/api/scan', async (req, res) => {
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
 
-    // === Get Top Holders from Helius GraphQL ===
+    // === Get Top Holders from Helius ===
     let holders = [];
     try {
-      const gqlQuery = {
-        query: `{
-          tokenLargestAccounts(networks: ["MAINNET"], address: "${mintAddress}") {
-            owner
-            amount
-            percentage
-          }
-        }`
-      };
-
-      const gqlRes = await fetch(`https://api.helius.xyz/v1/graphql`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${HELIUS_KEY}`
-        },
-        body: JSON.stringify(gqlQuery)
-      });
-      const gqlData = await gqlRes.json();
-      holders = gqlData.data?.tokenLargestAccounts?.slice(0, 10).map(h => ({
-        address: h.owner,
-        percent: (h.percentage * 100).toFixed(2)
-      })) || [];
+      const holdersRes = await fetch(`https://api.helius.xyz/v1/token-holders?api-key=${HELIUS_KEY}&mint=${mintAddress}&limit=10`);
+      const holdersData = await holdersRes.json();
+      if (Array.isArray(holdersData?.result)) {
+        holders = holdersData.result.map(h => ({
+          address: h.owner,
+          percent: h.percentage ? (h.percentage * 100).toFixed(2) : "N/A"
+        }));
+      }
     } catch (holderErr) {
       console.warn("⚠️ Failed to fetch holders:", holderErr);
     }
@@ -189,4 +173,3 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
 app.listen(PORT, () => {
   console.log(`✅ R5 Secure Token Checker API running on port ${PORT}`);
 });
-
