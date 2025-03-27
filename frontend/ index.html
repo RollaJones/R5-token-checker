@@ -193,7 +193,13 @@
       });
 
       const data = await response.json();
-      const pair = data.pair || {};
+
+      if (!data.pair) {
+        alert("⚠️ Token not found. Try using a valid pair address.");
+        return;
+      }
+
+      const pair = data.pair;
       const base = pair.baseToken || {};
       const liquidity = pair.liquidity || {};
       const volume = pair.volume || {};
@@ -208,7 +214,7 @@
       const score = liquidity.usd > 10000 ? 85 : 40;
       document.querySelector('.token-card strong').textContent = score;
 
-      // Debugging log before setting the summary
+      // Debugging log
       console.log("Setting summary text for:", base.name, base.symbol, liquidity.usd, volume.h24, txns.buys, txns.sells);
 
       // Update summary
