@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>R5 Secure Token Checker</title>
   <style>
     body {
@@ -94,24 +94,41 @@
   </div>
 
   <div class="search-bar">
-    <input type="text" id="mintInput" placeholder="Enter Token ID or Mint Address" />
+    <input type="text" id="mintInput" placeholder="Enter Pair Address (ex: BqZfUxqiVQc...)">
     <button class="button" onclick="scanToken()">Scan Token</button>
   </div>
 
   <div class="section">
-    <div class="section-title">Token Safety Report</div>
-    <div class="token-card">Overall Score: <strong style="color: #14FFB9;" id="scoreDisplay">N/A</strong></div>
+    <div class="section-title">Token ABC Safety Report</div>
+    <div class="token-card">Overall Score: <strong style="color: #14FFB9;">82</strong></div>
 
     <div class="token-card">
       <strong>Token Summary:</strong>
-      <p id="tokenSummary">No scan yet.</p>
+      <p id="tokenSummary">This token shows a strong safety score of 82...</p>
     </div>
 
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Liquidity & Ownership</h3>
       <div class="content" id="liquidityContent">
-        <p>LP Locked: Unknown</p>
-        <p>Ownership: Unknown</p>
+        <p>LP Locked: Until Jul 2025</p>
+        <p>Ownership: Renounced</p>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Audit & Contract</h3>
+      <div class="content">
+        <p>Audit: Certik</p>
+        <p>Blacklist Function: None</p>
+        <p>KYC Status: Verified</p>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Wallet Activity</h3>
+      <div class="content">
+        <p>Dev Wallet Activity: Clean</p>
+        <p><strong>Premium 🔒</strong> Influencer Activity</p>
       </div>
     </div>
 
@@ -119,11 +136,7 @@
       <h3 onclick="toggleContent(this)">Holder Data</h3>
       <div class="content">
         <ul id="holderList">
-          <li>Wallet 1: 22% - 3xG...FaK1</li>
-          <li>Wallet 2: 15% - 7kD...TjQ9</li>
-          <li>Wallet 3: 10% - 4qA...XzL3</li>
-          <li>Wallet 4: 8%  - 9vM...RtZ2</li>
-          <li>Wallet 5: 5%  - 1eW...KyB7</li>
+          <li>No data loaded yet.</li>
         </ul>
       </div>
     </div>
@@ -142,80 +155,82 @@
 
   <footer>
     <div class="wallet-bar">
-      <input type="text" placeholder="Enter Wallet Address (Premium)" />
+      <input type="text" placeholder="Enter Wallet Address (Premium)">
     </div>
     <button class="button">Scan My Wallet</button>
   </footer>
 
   <script>
-    let support = 0, unsure = 0, noSupport = 0;
+  let support = 0, unsure = 0, noSupport = 0;
 
-    function toggleContent(element) {
-      const content = element.nextElementSibling;
-      content.style.display = content.style.display === "block" ? "none" : "block";
+  function toggleContent(element) {
+    const content = element.nextElementSibling;
+    content.style.display = content.style.display === "block" ? "none" : "block";
+  }
+
+  function vote(type) {
+    if (type === 'support') {
+      support++;
+      document.getElementById('supportCount').textContent = support;
+    } else if (type === 'unsure') {
+      unsure++;
+      document.getElementById('unsureCount').textContent = unsure;
+    } else if (type === 'noSupport') {
+      noSupport++;
+      document.getElementById('noSupportCount').textContent = noSupport;
     }
+  }
 
-    function vote(type) {
-      if (type === 'support') {
-        support++;
-        document.getElementById('supportCount').textContent = support;
-      } else if (type === 'unsure') {
-        unsure++;
-        document.getElementById('unsureCount').textContent = unsure;
-      } else if (type === 'noSupport') {
-        noSupport++;
-        document.getElementById('noSupportCount').textContent = noSupport;
+  async function scanToken() {
+    const mint = document.getElementById('mintInput').value.trim();
+    if (!mint) return alert('❌ Please enter a mint or pair address.');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mintAddress: mint })
+      });
+
+      const data = await response.json();
+
+      if (!data.pair) {
+        alert("⚠️ Token not found. Try using a valid pair address.");
+        return;
       }
+
+      const pair = data.pair;
+      const base = pair.baseToken || {};
+      const liquidity = pair.liquidity || {};
+      const volume = pair.volume || {};
+      const txns = pair.txns?.h24 || {};
+      const lockInfo = data.liquidityLock || {};
+      const holders = data.holders || [];
+
+      document.querySelector('.section-title').textContent = `${base.name || 'Unknown Token'} Safety Report`;
+
+      const score = liquidity.usd > 10000 ? 85 : 40;
+      document.querySelector('.token-card strong').textContent = score;
+
+      const summary = document.getElementById('tokenSummary');
+      summary.textContent = `${base.name || 'Token'} (${base.symbol || 'SYM'}) has $${Number(liquidity.usd || 0).toLocaleString()} liquidity and $${Number(volume.h24 || 0).toLocaleString()} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}.`;
+
+      const liquiditySection = document.getElementById('liquidityContent');
+      liquiditySection.innerHTML = `
+        <p>LP Locked: ${lockInfo.locked ? `✅ Until ${new Date(lockInfo.until).toLocaleDateString()}` : '❌ Not Locked'}</p>
+        <p>Ownership: ${lockInfo.renounced ? '✅ Renounced' : '❌ Not Renounced'}</p>
+      `;
+
+      const holderList = document.getElementById('holderList');
+      holderList.innerHTML = holders.length
+        ? holders.slice(0, 5).map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
+        : '<li>No holder data found.</li>';
+
+    } catch (err) {
+      alert('⚠️ Failed to fetch token data.');
+      console.error(err);
     }
-
-    async function scanToken() {
-      const mint = document.getElementById('mintInput').value.trim();
-      if (!mint) return alert('❌ Please enter a mint or pair address.');
-
-      try {
-        const response = await fetch('http://localhost:5000/api/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mintAddress: mint })
-        });
-
-        const data = await response.json();
-
-        if (!data.pair) {
-          alert("⚠️ Token not found. Try using a valid pair address.");
-          return;
-        }
-
-        const pair = data.pair;
-        const base = pair.baseToken || {};
-        const liquidity = pair.liquidity || {};
-        const volume = pair.volume || {};
-        const txns = pair.txns?.h24 || {};
-        const lockInfo = data.liquidityLock || {};
-        const holders = data.holders || [];
-
-        document.querySelector('.section-title').textContent = `${base.name || 'Unknown Token'} Safety Report`;
-        document.getElementById('scoreDisplay').textContent = liquidity.usd > 10000 ? 85 : 40;
-
-        const summary = document.getElementById('tokenSummary');
-        summary.textContent = `${base.name || 'Token'} (${base.symbol || 'SYM'}) has $${Number(liquidity.usd || 0).toLocaleString()} liquidity and $${Number(volume.h24 || 0).toLocaleString()} 24h volume. Buys: ${txns.buys || 0}, Sells: ${txns.sells || 0}.`;
-
-        const liquiditySection = document.getElementById('liquidityContent');
-        liquiditySection.innerHTML = `
-          <p>LP Locked: ${lockInfo.locked ? `✅ Until ${new Date(lockInfo.until).toLocaleDateString()}` : '❌ Not Locked'}</p>
-          <p>Ownership: ${lockInfo.renounced ? '✅ Renounced' : '❌ Not Renounced'}</p>
-        `;
-
-        const holderList = document.getElementById('holderList');
-        holderList.innerHTML = holders.length
-          ? holders.slice(0, 5).map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
-          : '<li>No holder data found.</li>';
-      } catch (err) {
-        alert('⚠️ Failed to fetch token data.');
-        console.error(err);
-      }
-    }
+  }
   </script>
 </body>
 </html>
-
