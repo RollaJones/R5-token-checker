@@ -127,7 +127,7 @@ app.post('/api/scan', async (req, res) => {
     else if (score >= 60) grade = 'C';
     else if (score >= 45) grade = 'D';
 
-    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress);
+    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress, pairAddress);
 
     res.json({
       name: base.name,
@@ -155,7 +155,7 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "") {
+function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "", pairAddress = "") {
   const name = base.name || 'Token';
   const symbol = base.symbol || 'SYM';
   const liqStr = `$${Number(liquidity.usd || 0).toLocaleString()}`;
@@ -163,8 +163,9 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
   const solscanLink = `🔍 <a href="https://solscan.io/token/${mintAddress}" target="_blank">View on Solscan</a>`;
+  const dexScreenerLink = `📈 <a href="https://dexscreener.com/solana/${pairAddress}" target="_blank">View on Dex Screener</a>`;
 
-  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}`;
+  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}<br>${dexScreenerLink}`;
 
   if (flags.length > 0) {
     summary += `<br><br><strong>⚠️ Red Flags:</strong> ${flags.join(', ')}`;
