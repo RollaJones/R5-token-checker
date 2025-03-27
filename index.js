@@ -1,5 +1,5 @@
 const dotenv = require('dotenv');
-dotenv.config(); // Load .env first
+dotenv.config();
 console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
 
 const express = require('express');
@@ -12,6 +12,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 5000;
+const HELIUS_KEY = process.env.HELIUS_KEY;
 
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
@@ -32,16 +33,28 @@ app.post('/api/scan', async (req, res) => {
     const liquidity = pair.liquidity || {};
     const volume = pair.volume || {};
     const txns = pair.txns?.h24 || {};
-    const holders = result.holders || [];
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
-    const chartURL = pair.url || null;
+
+    // === Get Top Holders from Helius ===
+    let holders = [];
+    try {
+      const holdersRes = await fetch(`https://api.helius.xyz/v0/token/${mintAddress}/rich-list?api-key=${HELIUS_KEY}`);
+      const holdersData = await holdersRes.json();
+      if (Array.isArray(holdersData)) {
+        holders = holdersData.slice(0, 10).map(h => ({
+          address: h.owner,
+          percent: (h.percentage * 100).toFixed(2)
+        }));
+      }
+    } catch (holderErr) {
+      console.warn("⚠️ Failed to fetch holders:", holderErr);
+    }
 
     // === SCORING & FLAGS ===
     const flags = [];
     let score = 50;
 
-    // Liquidity Risk
     if (liquidity.usd > 20000) score += 10;
     else if (liquidity.usd >= 10000) {
       score += 3;
@@ -54,34 +67,26 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Very low liquidity");
     }
 
-    // LP Lock
-    if (lockInfo.locked) {
-      score += 5;
-    } else {
+    if (lockInfo.locked) score += 5;
+    else {
       score -= 10;
       flags.push("LP not locked");
     }
 
-    // Ownership
-    if (lockInfo.renounced) {
-      score += 10;
-    } else {
+    if (lockInfo.renounced) score += 10;
+    else {
       score -= 10;
       flags.push("Ownership not renounced");
     }
 
-    // Volume
-    if (volume.h24 > 100000) {
-      score += 10;
-    } else if (volume.h24 >= 25000) {
-      score += 5;
-    } else if (volume.h24 <= 10000) {
+    if (volume.h24 > 100000) score += 10;
+    else if (volume.h24 >= 25000) score += 5;
+    else if (volume.h24 <= 10000) {
       score -= 5;
       flags.push("Low trading volume");
     }
 
-    // Top Holder Risk
-    const topHolderPercent = Array.isArray(holders) && holders[0]?.percent;
+    const topHolderPercent = holders[0]?.percent;
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
@@ -89,46 +94,36 @@ app.post('/api/scan', async (req, res) => {
       score -= 5;
     }
 
-    // Audit / KYC
     if (result.audit === 'Certik') score += 5;
     else flags.push("No audit found");
 
     if (result.kyc === 'Verified') score += 5;
     else flags.push("KYC not verified");
 
-    // Dev Wallet Activity
-    let walletActivityLabel = 'Unknown';
-    if (result.walletActivity === 'Clean') {
-      score += 5;
-      walletActivityLabel = 'Clean';
-    } else if (result.walletActivity === 'Suspicious') {
+    if (result.walletActivity === 'Clean') score += 5;
+    else if (result.walletActivity === 'Suspicious') {
       score -= 10;
-      walletActivityLabel = 'Suspicious';
       flags.push("Dev wallet suspicious");
     } else {
       flags.push("Dev wallet unknown");
-      walletActivityLabel = 'Unavailable – refer to Solscan owner section';
     }
 
-    // Token Age
     const daysOld = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
     if (daysOld < 2) {
       score -= 5;
       flags.push("New token");
     }
 
-    // Final score logic
     score -= flags.length * 1.5;
     score = Math.max(0, Math.min(100, score));
 
-    // Grade
     let grade = 'F';
     if (score >= 90) grade = 'A';
     else if (score >= 75) grade = 'B';
     else if (score >= 60) grade = 'C';
     else if (score >= 45) grade = 'D';
 
-    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress, chartURL);
+    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress);
 
     res.json({
       name: base.name,
@@ -140,15 +135,14 @@ app.post('/api/scan', async (req, res) => {
       audit: result.audit || 'N/A',
       kyc: result.kyc || 'N/A',
       blacklistFunction: result.blacklistFunction || 'N/A',
-      walletActivity: walletActivityLabel,
+      walletActivity: result.walletActivity || 'Unknown',
       trustScore: result.trustScore || 'N/A',
       scamReports: result.scamReports || 'N/A',
       liquidityLock: lockInfo,
       pairCreatedAt: createdAt,
       flags,
       summary,
-      mintAddress,
-      chartURL
+      mintAddress
     });
 
   } catch (err) {
@@ -157,7 +151,7 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "", chartURL = "") {
+function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "") {
   const name = base.name || 'Token';
   const symbol = base.symbol || 'SYM';
   const liqStr = `$${Number(liquidity.usd || 0).toLocaleString()}`;
@@ -165,9 +159,9 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
   const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
-  const chartLink = chartURL ? ` | 📊 <a href="${chartURL}" target="_blank">View Chart</a>` : '';
+  const chartLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
 
-  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}${chartLink}`;
+  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink} | ${chartLink}`;
 
   if (flags.length > 0) {
     summary += `<br><br><strong>⚠️ Red Flags:</strong> ${flags.join(', ')}`;
