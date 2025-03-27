@@ -13,6 +13,32 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 5000;
 
+// === Helius Token Holder Fetch ===
+async function fetchTopHolders(mintAddress) {
+  try {
+    const heliusURL = `https://api.helius.xyz/v0/token-holders?api-key=${process.env.HELIUS_KEY}&mint=${mintAddress}`;
+    const response = await fetch(heliusURL);
+    const data = await response.json();
+
+    if (!Array.isArray(data)) return [];
+
+    const total = data.reduce((sum, h) => sum + Number(h.amount || 0), 0);
+
+    const holders = data
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5)
+      .map(h => ({
+        address: h.owner,
+        percent: total > 0 ? ((h.amount / total) * 100).toFixed(2) : null
+      }));
+
+    return holders;
+  } catch (error) {
+    console.error("🔻 Failed to fetch holders from Helius:", error);
+    return [];
+  }
+}
+
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
   console.log("🔍 scanToken called");
@@ -32,10 +58,11 @@ app.post('/api/scan', async (req, res) => {
     const liquidity = pair.liquidity || {};
     const volume = pair.volume || {};
     const txns = pair.txns?.h24 || {};
-    const holders = result.holders || [];
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
-    const pairAddress = pair.pairAddress || '';
+
+    // ⏬ Fetch holders from Helius
+    const holders = await fetchTopHolders(mintAddress);
 
     // === SCORING & FLAGS ===
     const flags = [];
@@ -81,7 +108,7 @@ app.post('/api/scan', async (req, res) => {
     }
 
     // Top Holder Risk
-    const topHolderPercent = Array.isArray(holders) && holders[0]?.percent;
+    const topHolderPercent = holders[0]?.percent;
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
@@ -124,7 +151,7 @@ app.post('/api/scan', async (req, res) => {
     else if (score >= 60) grade = 'C';
     else if (score >= 45) grade = 'D';
 
-    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress, pairAddress);
+    const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress);
 
     res.json({
       name: base.name,
@@ -152,7 +179,7 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "", pairAddress = "") {
+function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "") {
   const name = base.name || 'Token';
   const symbol = base.symbol || 'SYM';
   const liqStr = `$${Number(liquidity.usd || 0).toLocaleString()}`;
@@ -160,9 +187,9 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
   const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
-  const dexscreenerLink = pairAddress ? `<br>🔗 <a href="https://dexscreener.com/solana/${pairAddress}" target="_blank">View on Dexscreener</a>` : '';
+  const dexscreenerLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
 
-  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}${dexscreenerLink}`;
+  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink} &nbsp;|&nbsp; ${dexscreenerLink}`;
 
   if (flags.length > 0) {
     summary += `<br><br><strong>⚠️ Red Flags:</strong> ${flags.join(', ')}`;
