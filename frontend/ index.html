@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -95,7 +95,7 @@
 
   <div class="search-bar">
     <input type="text" id="mintInput" placeholder="Enter Pair Address (ex: BqZfUxqiVQc...)">
-    <button class="button" onclick="scanToken()">Scan Token</button>
+    <button class="button" id="scanBtn">Scan Token</button>
   </div>
 
   <div class="section">
@@ -181,9 +181,15 @@
     }
   }
 
+  document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("scanBtn").addEventListener("click", scanToken);
+  });
+
   async function scanToken() {
+    console.log("🔍 scanToken called");
     const mint = document.getElementById('mintInput').value.trim();
     if (!mint) return alert('❌ Please enter a mint or pair address.');
+    console.log("📦 Sending request for:", mint);
 
     try {
       const response = await fetch('http://localhost:5000/api/scan', {
@@ -193,6 +199,7 @@
       });
 
       const data = await response.json();
+      console.log("📬 API response:", data);
 
       if (!data.pair) {
         alert("⚠️ Token not found. Try using a valid pair address.");
