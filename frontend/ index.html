@@ -209,8 +209,7 @@
         document.querySelector('.section-title').textContent = `${base} Safety Report`;
         document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
 
-        const summary = `${data.summary}`;
-        document.getElementById('tokenSummary').innerHTML = summary;
+        document.getElementById('tokenSummary').innerHTML = data.summary;
 
         const flagsCard = document.getElementById('flagsCard');
         const flagList = document.getElementById('flagList');
@@ -224,7 +223,7 @@
         const holderList = document.getElementById('holderList');
         const holders = data.holders || [];
         holderList.innerHTML = Array.isArray(holders) && holders.length
-          ? holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
+          ? holders.slice(0, 10).map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
           : '<li>No holder data found.</li>';
 
         document.getElementById('lpLock').textContent = data.liquidityLock?.locked ? `LP Locked: ✅ Until ${new Date(data.liquidityLock.until).toLocaleDateString()}` : 'LP Locked: ❌ Not Locked';
