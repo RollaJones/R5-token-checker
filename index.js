@@ -13,28 +13,35 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 5000;
 
-// === Helius Token Holder Fetch ===
-async function fetchTopHolders(mintAddress) {
+// 🔧 Fetch holders using Helius API
+async function fetchHoldersFromHelius(mintAddress) {
+  const url = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_KEY}`;
+  const body = {
+    jsonrpc: '2.0',
+    id: 'r5-check',
+    method: 'getTokenLargestAccounts',
+    params: [mintAddress]
+  };
+
   try {
-    const heliusURL = `https://api.helius.xyz/v0/token-holders?api-key=${process.env.HELIUS_KEY}&mint=${mintAddress}`;
-    const response = await fetch(heliusURL);
-    const data = await response.json();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
 
-    if (!Array.isArray(data)) return [];
+    const data = await res.json();
+    const valueList = data.result?.value || [];
 
-    const total = data.reduce((sum, h) => sum + Number(h.amount || 0), 0);
+    // Get total supply
+    const total = valueList.reduce((sum, acct) => sum + Number(acct.amount), 0);
 
-    const holders = data
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5)
-      .map(h => ({
-        address: h.owner,
-        percent: total > 0 ? ((h.amount / total) * 100).toFixed(2) : null
-      }));
-
-    return holders;
-  } catch (error) {
-    console.error("🔻 Failed to fetch holders from Helius:", error);
+    return valueList.map((acct, i) => ({
+      address: acct.address,
+      percent: total ? ((Number(acct.amount) / total) * 100).toFixed(2) : 0
+    }));
+  } catch (err) {
+    console.error("❌ Error fetching from Helius:", err);
     return [];
   }
 }
@@ -61,8 +68,8 @@ app.post('/api/scan', async (req, res) => {
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
 
-    // ⏬ Fetch holders from Helius
-    const holders = await fetchTopHolders(mintAddress);
+    // Fetch holders from Helius
+    const holders = await fetchHoldersFromHelius(base.address);
 
     // === SCORING & FLAGS ===
     const flags = [];
@@ -82,27 +89,23 @@ app.post('/api/scan', async (req, res) => {
     }
 
     // LP Lock
-    if (lockInfo.locked) {
-      score += 5;
-    } else {
+    if (lockInfo.locked) score += 5;
+    else {
       score -= 10;
       flags.push("LP not locked");
     }
 
     // Ownership
-    if (lockInfo.renounced) {
-      score += 10;
-    } else {
+    if (lockInfo.renounced) score += 10;
+    else {
       score -= 10;
       flags.push("Ownership not renounced");
     }
 
     // Volume
-    if (volume.h24 > 100000) {
-      score += 10;
-    } else if (volume.h24 >= 25000) {
-      score += 5;
-    } else if (volume.h24 <= 10000) {
+    if (volume.h24 > 100000) score += 10;
+    else if (volume.h24 >= 25000) score += 5;
+    else if (volume.h24 <= 10000) {
       score -= 5;
       flags.push("Low trading volume");
     }
@@ -112,9 +115,7 @@ app.post('/api/scan', async (req, res) => {
     if (topHolderPercent > 20) {
       score -= 10;
       flags.push(`Top holder owns ${topHolderPercent}%`);
-    } else if (topHolderPercent > 10) {
-      score -= 5;
-    }
+    } else if (topHolderPercent > 10) score -= 5;
 
     // Audit / KYC
     if (result.audit === 'Certik') score += 5;
@@ -124,9 +125,8 @@ app.post('/api/scan', async (req, res) => {
     else flags.push("KYC not verified");
 
     // Dev Wallet Activity
-    if (result.walletActivity === 'Clean') {
-      score += 5;
-    } else if (result.walletActivity === 'Suspicious') {
+    if (result.walletActivity === 'Clean') score += 5;
+    else if (result.walletActivity === 'Suspicious') {
       score -= 10;
       flags.push("Dev wallet suspicious");
     } else {
@@ -140,7 +140,7 @@ app.post('/api/scan', async (req, res) => {
       flags.push("New token");
     }
 
-    // Final score logic
+    // Final scoring pass
     score -= flags.length * 1.5;
     score = Math.max(0, Math.min(100, score));
 
@@ -186,10 +186,11 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
   const volStr = `$${Number(volume.h24 || 0).toLocaleString()}`;
   const buyCount = txns.buys || 0;
   const sellCount = txns.sells || 0;
-  const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
-  const dexscreenerLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
 
-  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink} &nbsp;|&nbsp; ${dexscreenerLink}`;
+  const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
+  const chartLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
+
+  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}  |  ${chartLink}`;
 
   if (flags.length > 0) {
     summary += `<br><br><strong>⚠️ Red Flags:</strong> ${flags.join(', ')}`;
