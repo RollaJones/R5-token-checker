@@ -94,7 +94,7 @@
   </div>
 
   <div class="search-bar">
-    <input type="text" id="mintInput" placeholder="Enter Token ID or Mint Address">
+    <input type="text" id="mintInput" placeholder="Enter Pair Address (ex: BqZfUxqiVQc...)">
     <button class="button" onclick="scanToken()">Scan Token</button>
   </div>
 
@@ -104,7 +104,7 @@
 
     <div class="token-card">
       <strong>Token Summary:</strong>
-      <p id="tokenSummary">This token shows a strong safety score of 82, with liquidity locked and ownership renounced. It has no blacklist functions or audit issues and appears to have clean developer wallet activity. However, 60% of supply is held by the top 5 wallets, which introduces a moderate centralization risk. Community sentiment and trust scores are positive, and no scam reports have been filed.</p>
+      <p id="tokenSummary">This token shows a strong safety score of 82...</p>
     </div>
 
     <div class="collapsible">
@@ -135,12 +135,8 @@
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Holder Data</h3>
       <div class="content">
-        <ul>
-          <li>Wallet 1: 22% - 3xG...FaK1</li>
-          <li>Wallet 2: 15% - 7kD...TjQ9</li>
-          <li>Wallet 3: 10% - 4qA...XzL3</li>
-          <li>Wallet 4: 8%  - 9vM...RtZ2</li>
-          <li>Wallet 5: 5%  - 1eW...KyB7</li>
+        <ul id="holderList">
+          <li>No data loaded yet.</li>
         </ul>
       </div>
     </div>
@@ -203,6 +199,7 @@
         const volume = pair.volume || {};
         const txns = pair.txns?.h24 || {};
         const lockInfo = data.liquidityLock || {};
+        const holders = data.holders || [];
 
         document.querySelector('.section-title').textContent = `${base.name || 'Unknown Token'} Safety Report`;
         const score = liquidity.usd > 10000 ? 85 : 40;
@@ -216,6 +213,12 @@
           <p>LP Locked: ${lockInfo.locked ? `✅ Until ${new Date(lockInfo.until).toLocaleDateString()}` : '❌ Not Locked'}</p>
           <p>Ownership: ${lockInfo.renounced ? '✅ Renounced' : '❌ Not Renounced'}</p>
         `;
+
+        const holderList = document.getElementById('holderList');
+        holderList.innerHTML = holders.length
+          ? holders.slice(0, 5).map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
+          : '<li>No holder data found.</li>';
+
       } catch (err) {
         alert('⚠️ Failed to fetch token data.');
         console.error(err);
@@ -224,4 +227,5 @@
   </script>
 </body>
 </html>
+
 
