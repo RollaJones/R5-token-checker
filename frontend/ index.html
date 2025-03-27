@@ -178,16 +178,13 @@
     }
 
     function vote(type) {
-      if (type === 'support') {
-        support++;
-        document.getElementById('supportCount').textContent = support;
-      } else if (type === 'unsure') {
-        unsure++;
-        document.getElementById('unsureCount').textContent = unsure;
-      } else if (type === 'noSupport') {
-        noSupport++;
-        document.getElementById('noSupportCount').textContent = noSupport;
-      }
+      if (type === 'support') support++;
+      else if (type === 'unsure') unsure++;
+      else if (type === 'noSupport') noSupport++;
+
+      document.getElementById('supportCount').textContent = support;
+      document.getElementById('unsureCount').textContent = unsure;
+      document.getElementById('noSupportCount').textContent = noSupport;
     }
 
     async function scanToken() {
@@ -208,7 +205,6 @@
         const base = data.name || 'Unknown';
         document.querySelector('.section-title').textContent = `${base} Safety Report`;
         document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
-
         document.getElementById('tokenSummary').innerHTML = data.summary;
 
         const flagsCard = document.getElementById('flagsCard');
@@ -223,16 +219,22 @@
         const holderList = document.getElementById('holderList');
         const holders = data.holders || [];
         holderList.innerHTML = Array.isArray(holders) && holders.length
-          ? holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
+          ? holders.map((h, i) =>
+              `<li>Wallet ${i + 1}: ${h.percent}% — ${Number(h.amount).toLocaleString()} tokens<br><small>${h.address.slice(0, 6)}...${h.address.slice(-4)}</small></li>`
+            ).join('')
           : '<li>No holder data found.</li>';
 
-        document.getElementById('lpLock').textContent = data.liquidityLock?.locked ? `LP Locked: ✅ Until ${new Date(data.liquidityLock.until).toLocaleDateString()}` : 'LP Locked: ❌ Not Locked';
-        document.getElementById('ownershipStatus').textContent = data.liquidityLock?.renounced ? 'Ownership: ✅ Renounced' : 'Ownership: ❌ Not Renounced';
+        document.getElementById('lpLock').textContent = data.liquidityLock?.locked
+          ? `LP Locked: ✅ Until ${new Date(data.liquidityLock.until).toLocaleDateString()}`
+          : 'LP Locked: ❌ Not Locked';
+
+        document.getElementById('ownershipStatus').textContent = data.liquidityLock?.renounced
+          ? 'Ownership: ✅ Renounced'
+          : 'Ownership: ❌ Not Renounced';
 
         document.getElementById('auditStatus').textContent = data.audit || 'N/A';
         document.getElementById('blacklistStatus').textContent = data.blacklistFunction || 'N/A';
         document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
-
         document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
         document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
         document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
@@ -245,4 +247,3 @@
   </script>
 </body>
 </html>
-
