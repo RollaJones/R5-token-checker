@@ -226,15 +226,24 @@
       const lockStatus = data.liquidityLock?.locked;
       const lockUntil = data.liquidityLock?.until;
 
-      if (lockStatus === true) {
-        const dateText = lockUntil ? ` Until ${new Date(lockUntil).toLocaleDateString()}` : '';
-        document.getElementById('lpLock').textContent = `LP Locked: ✅${dateText}`;
-        document.getElementById('liqSource').innerHTML = `<a href='https://rugcheck.xyz/token/${data.mintAddress}' target='_blank'>🔗 View Lock on RugCheck</a>`;
-        document.getElementById('liqLinks').innerHTML = `🧭 <a href='https://solscan.io/account/${data.mintAddress}' target='_blank'>Solscan</a> | 📊 <a href='https://dexscreener.com/solana/${data.mintAddress}' target='_blank'>DexScreener</a>`;
-      } else if (lockStatus === false) {
-        document.getElementById('lpLock').textContent = 'LP Locked: ❌ Not Locked';
-        document.getElementById('liqSource').innerHTML = '';
-        document.getElementById('liqLinks').innerHTML = '';
+      const rugUrl = `https://rugcheck.xyz/token/${data.mintAddress}`;
+const solscanUrl = `https://solscan.io/account/${data.mintAddress}`;
+const dexscreenerUrl = `https://dexscreener.com/solana/${data.mintAddress}`;
+
+if (lockStatus === true) {
+  const dateText = lockUntil ? ` Until ${new Date(lockUntil).toLocaleDateString()}` : '';
+  document.getElementById('lpLock').textContent = `LP Locked: ✅${dateText}`;
+} else if (lockStatus === false) {
+  document.getElementById('lpLock').textContent = 'LP Locked: ❌ Not Locked';
+} else {
+  document.getElementById('lpLock').textContent = 'LP Locked: ❓ Unknown';
+}
+
+document.getElementById('liqSource').innerHTML = `<a href='${rugUrl}' target='_blank'>🔗 View on RugCheck</a>`;
+document.getElementById('liqLinks').innerHTML = `
+  🧭 <a href='${solscanUrl}' target='_blank'>Solscan</a> | 
+  📊 <a href='${dexscreenerUrl}' target='_blank'>DexScreener</a>
+`;
       } else {
         document.getElementById('lpLock').textContent = 'LP Locked: ❓ Unknown';
         document.getElementById('liqSource').innerHTML = '';
