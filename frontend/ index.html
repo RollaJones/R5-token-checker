@@ -215,18 +215,19 @@
         ? data.holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
         : '<li>No holder data found.</li>';
 
-      // ✅ Updated Liquidity & Ownership Display
+      // ✅ LP Lock status with fallback logic
       if (data.liquidityLock?.locked === true) {
-        const untilDate = data.liquidityLock.until
+        const until = data.liquidityLock.until
           ? new Date(data.liquidityLock.until).toLocaleDateString()
           : 'Unknown';
-        document.getElementById('lpLock').textContent = `LP Locked: ✅ Until ${untilDate}`;
+        document.getElementById('lpLock').textContent = `LP Locked: ✅ Until ${until}`;
       } else if (data.liquidityLock?.locked === false) {
         document.getElementById('lpLock').textContent = 'LP Locked: ❌ Not Locked';
       } else {
         document.getElementById('lpLock').textContent = 'LP Locked: ❓ Unknown';
       }
 
+      // ✅ Ownership status with fallback logic
       if (data.liquidityLock?.renounced === true) {
         document.getElementById('ownershipStatus').textContent = 'Ownership: ✅ Renounced';
       } else if (data.liquidityLock?.renounced === false) {
