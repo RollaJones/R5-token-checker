@@ -14,16 +14,13 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// === Vote storage setup ===
 const voteFile = path.join(__dirname, 'votes.json');
 let voteData = fs.existsSync(voteFile) ? JSON.parse(fs.readFileSync(voteFile, 'utf-8')) : {};
-
-// Save votes.json periodically
 function saveVotes() {
   fs.writeFileSync(voteFile, JSON.stringify(voteData, null, 2));
 }
 
-// === Helius Top Holders Fetch ===
+// === Fetch Top Holders ===
 async function fetchHoldersFromHelius(mintAddress) {
   const url = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_KEY}`;
   const body = {
@@ -32,18 +29,15 @@ async function fetchHoldersFromHelius(mintAddress) {
     method: 'getTokenLargestAccounts',
     params: [mintAddress]
   };
-
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-
     const data = await res.json();
     const valueList = data.result?.value || [];
     const total = valueList.reduce((sum, acct) => sum + Number(acct.amount), 0);
-
     return valueList.map(acct => ({
       address: acct.address,
       percent: total ? ((Number(acct.amount) / total) * 100).toFixed(2) : 0
@@ -52,6 +46,36 @@ async function fetchHoldersFromHelius(mintAddress) {
     console.error("❌ Error fetching from Helius:", err);
     return [];
   }
+}
+
+// === Solscan Ownership + LP Lock Fallback ===
+async function fetchSolscanFallback(mint, lpTokenAddr) {
+  const headers = { accept: 'application/json' };
+  const baseURL = 'https://public-api.solscan.io';
+
+  let renounced = null;
+  let lpLocked = null;
+
+  try {
+    const tokenMeta = await fetch(`${baseURL}/token/meta?tokenAddress=${mint}`, { headers });
+    const meta = await tokenMeta.json();
+    renounced = !meta?.owner || meta.owner === '11111111111111111111111111111111';
+
+    if (lpTokenAddr) {
+      const holdersRes = await fetch(`${baseURL}/token/holders?tokenAddress=${lpTokenAddr}&limit=10`, { headers });
+      const holderData = await holdersRes.json();
+      const firstHolder = holderData?.data?.[0];
+
+      if (firstHolder) {
+        const addr = firstHolder.owner;
+        lpLocked = addr === '11111111111111111111111111111111' || addr.includes('lock') || addr.includes('burn');
+      }
+    }
+  } catch (e) {
+    console.warn("⚠️ Solscan fallback failed:", e.message);
+  }
+
+  return { renounced, lpLocked };
 }
 
 // === Token Scan Endpoint ===
@@ -72,13 +96,19 @@ app.post('/api/scan', async (req, res) => {
     const txns = pair.txns?.h24 || {};
     const createdAt = pair.pairCreatedAt || Date.now();
 
-    // Updated lockInfo handling
     const rawLockInfo = result.liquidityLock || {};
-    const liquidityLock = {
-      locked: rawLockInfo.locked ?? false,
+    let liquidityLock = {
+      locked: rawLockInfo.locked ?? null,
       until: rawLockInfo.until ?? null,
       renounced: rawLockInfo.renounced ?? null
     };
+
+    // 🔁 Solscan fallback if needed
+    if (liquidityLock.locked === null || liquidityLock.renounced === null) {
+      const fallback = await fetchSolscanFallback(base.address, pair.lpToken?.address);
+      if (liquidityLock.locked === null) liquidityLock.locked = fallback.lpLocked;
+      if (liquidityLock.renounced === null) liquidityLock.renounced = fallback.renounced;
+    }
 
     const holders = await fetchHoldersFromHelius(base.address);
     const flags = [];
@@ -96,13 +126,15 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Very low liquidity");
     }
 
-    if (liquidityLock.locked) score += 5;
-    else {
+    if (liquidityLock.locked === true) score += 5;
+    else if (liquidityLock.locked === false) {
       score -= 10;
       flags.push("LP not locked");
+    } else {
+      flags.push("LP lock status unknown");
     }
 
-    if (liquidityLock.renounced) score += 10;
+    if (liquidityLock.renounced === true) score += 10;
     else if (liquidityLock.renounced === false) {
       score -= 10;
       flags.push("Ownership not renounced");
@@ -172,27 +204,22 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-// === Vote Submission Endpoint ===
+// === Vote System (unchanged) ===
 app.post('/api/vote', (req, res) => {
   const { mintAddress, vote, comment } = req.body;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
   if (!mintAddress || !vote) {
     return res.status(400).json({ success: false, message: "Missing vote or token." });
   }
-
   voteData[mintAddress] = voteData[mintAddress] || { votes: [], ips: {} };
   if (voteData[mintAddress].ips[ip]) {
     return res.status(403).json({ success: false, message: "Already voted." });
   }
-
   const cleanComment = String(comment || '').replace(/</g, "&lt;").substring(0, 200);
   voteData[mintAddress].votes.unshift({ vote, comment: cleanComment, ip, timestamp: Date.now() });
   voteData[mintAddress].ips[ip] = true;
-
   voteData[mintAddress].votes = voteData[mintAddress].votes.slice(0, 50);
   saveVotes();
-
   const recent = voteData[mintAddress].votes.slice(0, 5).map(v => ({ vote: v.vote, comment: v.comment }));
   res.json({ success: true, comments: recent });
 });
