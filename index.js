@@ -48,7 +48,7 @@ async function fetchHoldersFromHelius(mintAddress) {
   }
 }
 
-// === Solscan fallback (safe parsing)
+// === Solscan fallback (safe parsing + logging)
 async function fetchSolscanFallback(mint, lpTokenAddr) {
   const headers = { accept: 'application/json' };
   const baseURL = 'https://public-api.solscan.io';
@@ -107,6 +107,8 @@ app.post('/api/scan', async (req, res) => {
       until: rawLockInfo.until ?? null,
       renounced: rawLockInfo.renounced ?? null
     };
+
+    console.log("📦 LP token address from DexScreener:", pair.lpToken?.address);
 
     if (liquidityLock.locked === null || liquidityLock.renounced === null) {
       const fallback = await fetchSolscanFallback(base.address, pair.lpToken?.address);
