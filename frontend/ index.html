@@ -124,6 +124,7 @@
       <div class="content" id="liquidityContent">
         <p id="lpLock">LP Locked: Loading...</p>
         <p id="ownershipStatus">Ownership: Loading...</p>
+        <p id="liqSource" style="font-size: 14px; color: #999;"></p>
       </div>
     </div>
     <div class="collapsible">
@@ -221,10 +222,13 @@
       if (lockStatus === true) {
         const dateText = lockUntil ? ` Until ${new Date(lockUntil).toLocaleDateString()}` : '';
         document.getElementById('lpLock').textContent = `LP Locked: ✅${dateText}`;
+        document.getElementById('liqSource').innerHTML = `<a href='https://rugcheck.xyz/token/${data.mintAddress}' target='_blank'>🔗 View Lock on RugCheck</a>`;
       } else if (lockStatus === false) {
         document.getElementById('lpLock').textContent = 'LP Locked: ❌ Not Locked';
+        document.getElementById('liqSource').innerHTML = '';
       } else {
         document.getElementById('lpLock').textContent = 'LP Locked: ❓ Unknown';
+        document.getElementById('liqSource').innerHTML = '';
       }
 
       if (data.liquidityLock?.renounced === true) {
@@ -270,4 +274,3 @@
   </script>
 </body>
 </html>
-   
