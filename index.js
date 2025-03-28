@@ -1,15 +1,19 @@
-// index.js with DexScreener + Solscan + RugCheck fallbacks
-
-const dotenv = require('dotenv');
+import dotenv from 'dotenv';
 dotenv.config();
 console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
 
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const fetch = require('node-fetch');
-const fs = require('fs');
-const path = require('path');
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -22,7 +26,6 @@ function saveVotes() {
   fs.writeFileSync(voteFile, JSON.stringify(voteData, null, 2));
 }
 
-// === Helius Holders ===
 async function fetchHoldersFromHelius(mintAddress) {
   const url = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_KEY}`;
   const body = {
@@ -50,7 +53,6 @@ async function fetchHoldersFromHelius(mintAddress) {
   }
 }
 
-// === Solscan fallback (ownership only)
 async function fetchSolscanOwnership(mint) {
   try {
     const res = await fetch(`https://public-api.solscan.io/token/meta?tokenAddress=${mint}`);
@@ -65,7 +67,6 @@ async function fetchSolscanOwnership(mint) {
   }
 }
 
-// === RugCheck fallback (LP lock only)
 async function fetchRugCheckLP(mint) {
   try {
     const res = await fetch(`https://api.rugcheck.xyz/v1/token/${mint}`);
@@ -83,7 +84,22 @@ async function fetchRugCheckLP(mint) {
   return { locked: null, until: null };
 }
 
-// === Scan Endpoint
+function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "") {
+  const name = base.name || 'Token';
+  const symbol = base.symbol || 'SYM';
+  const liqStr = `$${Number(liquidity.usd || 0).toLocaleString()}`;
+  const volStr = `$${Number(volume.h24 || 0).toLocaleString()}`;
+  const buyCount = txns.buys || 0;
+  const sellCount = txns.sells || 0;
+  const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
+  const chartLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
+  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}  |  ${chartLink}`;
+  if (flags.length > 0) {
+    summary += `<br><br><strong>⚠️ Red Flags:</strong> ${flags.join(', ')}`;
+  }
+  return summary;
+}
+
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
   if (!mintAddress) return res.status(400).json({ error: 'Missing address' });
@@ -100,7 +116,6 @@ app.post('/api/scan', async (req, res) => {
     const volume = pair.volume || {};
     const txns = pair.txns?.h24 || {};
     const createdAt = pair.pairCreatedAt || Date.now();
-
     const rawLockInfo = result.liquidityLock || {};
     let liquidityLock = {
       locked: rawLockInfo.locked ?? null,
@@ -108,13 +123,11 @@ app.post('/api/scan', async (req, res) => {
       renounced: rawLockInfo.renounced ?? null
     };
 
-    // Run fallbacks
     if (liquidityLock.locked === null) {
       const rug = await fetchRugCheckLP(mintAddress);
       liquidityLock.locked = rug.locked;
       liquidityLock.until = rug.until;
     }
-
     if (liquidityLock.renounced === null) {
       liquidityLock.renounced = await fetchSolscanOwnership(base.address);
     }
@@ -219,40 +232,18 @@ app.post('/api/vote', (req, res) => {
   if (!mintAddress || !vote) {
     return res.status(400).json({ success: false, message: "Missing vote or token." });
   }
-
   voteData[mintAddress] = voteData[mintAddress] || { votes: [], ips: {} };
   if (voteData[mintAddress].ips[ip]) {
     return res.status(403).json({ success: false, message: "Already voted." });
   }
-
   const cleanComment = String(comment || '').replace(/</g, "&lt;").substring(0, 200);
   voteData[mintAddress].votes.unshift({ vote, comment: cleanComment, ip, timestamp: Date.now() });
   voteData[mintAddress].ips[ip] = true;
   voteData[mintAddress].votes = voteData[mintAddress].votes.slice(0, 50);
   saveVotes();
-
   const recent = voteData[mintAddress].votes.slice(0, 5).map(v => ({ vote: v.vote, comment: v.comment }));
   res.json({ success: true, comments: recent });
 });
-
-function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "") {
-  const name = base.name || 'Token';
-  const symbol = base.symbol || 'SYM';
-  const liqStr = `$${Number(liquidity.usd || 0).toLocaleString()}`;
-  const volStr = `$${Number(volume.h24 || 0).toLocaleString()}`;
-  const buyCount = txns.buys || 0;
-  const sellCount = txns.sells || 0;
-
-  const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
-  const chartLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
-  let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}  |  ${chartLink}`;
-
-  if (flags.length > 0) {
-    summary += `<br><br><strong>⚠️ Red Flags:</strong> ${flags.join(', ')}`;
-  }
-
-  return summary;
-}
 
 app.listen(PORT, () => {
   console.log(`✅ R5 Secure Token Checker API running on port ${PORT}`);
