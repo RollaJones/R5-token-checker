@@ -177,100 +177,104 @@
     </div>
     <button class="button">Scan My Wallet</button>
   </footer>
-  <script>
-    let hasVoted = false;
+ <script>
+  let hasVoted = false;
 
-    document.getElementById("scanBtn").addEventListener("click", scanToken);
+  document.getElementById("scanBtn").addEventListener("click", scanToken);
 
-    function toggleContent(element) {
-      const content = element.nextElementSibling;
-      content.style.display = content.style.display === "block" ? "none" : "block";
+  function toggleContent(element) {
+    const content = element.nextElementSibling;
+    content.style.display = content.style.display === "block" ? "none" : "block";
+  }
+
+  async function scanToken() {
+    const mint = document.getElementById('mintInput').value.trim();
+    if (!mint) return alert('❌ Please enter a mint or pair address.');
+
+    const response = await fetch('http://localhost:5000/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mintAddress: mint })
+    });
+
+    const data = await response.json();
+    document.querySelector('.section-title').textContent = `${data.name || 'Token'} Safety Report`;
+    document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
+    document.getElementById('tokenSummary').innerHTML = data.summary || 'No summary available.';
+
+    const flagList = document.getElementById('flagList');
+    const flagsCard = document.getElementById('flagsCard');
+    if (data.flags?.length > 0) {
+      flagList.innerHTML = data.flags.map(f => `<li>${f}</li>`).join('');
+      flagsCard.style.display = 'block';
+    } else {
+      flagsCard.style.display = 'none';
     }
 
-    async function scanToken() {
-      const mint = document.getElementById('mintInput').value.trim();
-      if (!mint) return alert('❌ Please enter a mint or pair address.');
+    const holderList = document.getElementById('holderList');
+    holderList.innerHTML = data.holders?.length
+      ? data.holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
+      : '<li>No holder data found.</li>';
 
-      const response = await fetch('http://localhost:5000/api/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mintAddress: mint })
-      });
+    const lockStatus = data.liquidityLock?.locked;
+    const lockUntil = data.liquidityLock?.until;
 
-      const data = await response.json();
-      document.querySelector('.section-title').textContent = `${data.name || 'Token'} Safety Report`;
-      document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
-      document.getElementById('tokenSummary').innerHTML = data.summary || 'No summary available.';
-
-      const flagList = document.getElementById('flagList');
-      const flagsCard = document.getElementById('flagsCard');
-      if (data.flags?.length > 0) {
-        flagList.innerHTML = data.flags.map(f => `<li>${f}</li>`).join('');
-        flagsCard.style.display = 'block';
-      } else {
-        flagsCard.style.display = 'none';
-      }
-
-      const holderList = document.getElementById('holderList');
-      holderList.innerHTML = data.holders?.length
-        ? data.holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
-        : '<li>No holder data found.</li>';
-
-      const lockStatus = data.liquidityLock?.locked;
-      const lockUntil = data.liquidityLock?.until;
-
-      if (lockStatus === true) {
-        const dateText = lockUntil ? ` Until ${new Date(lockUntil).toLocaleDateString()}` : '';
-        document.getElementById('lpLock').textContent = `LP Locked: ✅${dateText}`;
-        document.getElementById('liqSource').innerHTML = `<a href='https://rugcheck.xyz/token/${data.mintAddress}' target='_blank'>🔗 View Lock on RugCheck</a>`;
-      } else if (lockStatus === false) {
-        document.getElementById('lpLock').textContent = 'LP Locked: ❌ Not Locked';
-        document.getElementById('liqSource').innerHTML = '';
-      } else {
-        document.getElementById('lpLock').textContent = 'LP Locked: ❓ Unknown';
-        document.getElementById('liqSource').innerHTML = '';
-      }
-
-      if (data.liquidityLock?.renounced === true) {
-        document.getElementById('ownershipStatus').textContent = 'Ownership: ✅ Renounced';
-      } else if (data.liquidityLock?.renounced === false) {
-        document.getElementById('ownershipStatus').textContent = 'Ownership: ❌ Not Renounced';
-      } else {
-        document.getElementById('ownershipStatus').textContent = 'Ownership: ❓ Unknown';
-      }
-
-      document.getElementById('auditStatus').textContent = data.audit || 'N/A';
-      document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
-      document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
-      document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
-      document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
-      document.getElementById('fallbackSolscan').href = `https://solscan.io/account/${data.mintAddress}`;
+    if (lockStatus === true) {
+      const dateText = lockUntil ? ` Until ${new Date(lockUntil).toLocaleDateString()}` : '';
+      document.getElementById('lpLock').textContent = `LP Locked: ✅${dateText}`;
+      document.getElementById('liqSource').innerHTML = `<a href='https://rugcheck.xyz/token/${data.mintAddress}' target='_blank'>🔗 View Lock on RugCheck</a>`;
+      document.getElementById('liqLinks').innerHTML = `🧭 <a href='https://solscan.io/account/${data.mintAddress}' target='_blank'>Solscan</a> | 📊 <a href='https://dexscreener.com/solana/${data.mintAddress}' target='_blank'>DexScreener</a>`;
+    } else if (lockStatus === false) {
+      document.getElementById('lpLock').textContent = 'LP Locked: ❌ Not Locked';
+      document.getElementById('liqSource').innerHTML = '';
+      document.getElementById('liqLinks').innerHTML = '';
+    } else {
+      document.getElementById('lpLock').textContent = 'LP Locked: ❓ Unknown';
+      document.getElementById('liqSource').innerHTML = '';
+      document.getElementById('liqLinks').innerHTML = '';
     }
 
-    async function submitVote() {
-      if (hasVoted) return alert("You’ve already voted on this token.");
-      const mint = document.getElementById('mintInput').value.trim();
-      const vote = document.querySelector('input[name="voteOption"]:checked')?.value;
-      const comment = document.getElementById('voteComment').value.trim();
-
-      if (!vote) return alert("Please select a vote option.");
-
-      const res = await fetch('http://localhost:5000/api/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mintAddress: mint, vote, comment })
-      });
-
-      const result = await res.json();
-      if (result.success) {
-        hasVoted = true;
-        const recentComments = result.comments || [];
-        document.getElementById('voteResults').style.display = 'block';
-        document.getElementById('recentComments').innerHTML = recentComments.map(c => `<li><strong>${c.vote}</strong>: ${c.comment}</li>`).join('');
-      } else {
-        alert('❌ Failed to submit vote.');
-      }
+    if (data.liquidityLock?.renounced === true) {
+      document.getElementById('ownershipStatus').textContent = 'Ownership: ✅ Renounced';
+    } else if (data.liquidityLock?.renounced === false) {
+      document.getElementById('ownershipStatus').textContent = 'Ownership: ❌ Not Renounced';
+    } else {
+      document.getElementById('ownershipStatus').textContent = 'Ownership: ❓ Unknown';
     }
-  </script>
+
+    document.getElementById('auditStatus').textContent = data.audit || 'N/A';
+    document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
+    document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
+    document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
+    document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
+    document.getElementById('fallbackSolscan').href = `https://solscan.io/account/${data.mintAddress}`;
+  }
+
+  async function submitVote() {
+    if (hasVoted) return alert("You’ve already voted on this token.");
+    const mint = document.getElementById('mintInput').value.trim();
+    const vote = document.querySelector('input[name="voteOption"]:checked')?.value;
+    const comment = document.getElementById('voteComment').value.trim();
+
+    if (!vote) return alert("Please select a vote option.");
+
+    const res = await fetch('http://localhost:5000/api/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mintAddress: mint, vote, comment })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      hasVoted = true;
+      const recentComments = result.comments || [];
+      document.getElementById('voteResults').style.display = 'block';
+      document.getElementById('recentComments').innerHTML = recentComments.map(c => `<li><strong>${c.vote}</strong>: ${c.comment}</li>`).join('');
+    } else {
+      alert('❌ Failed to submit vote.');
+    }
+  }
+</script>
+
 </body>
 </html>
