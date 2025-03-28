@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -215,8 +215,26 @@
         ? data.holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
         : '<li>No holder data found.</li>';
 
-      document.getElementById('lpLock').textContent = data.liquidityLock?.locked ? `LP Locked: ✅ Until ${new Date(data.liquidityLock.until).toLocaleDateString()}` : 'LP Locked: ❌ Not Locked';
-      document.getElementById('ownershipStatus').textContent = data.liquidityLock?.renounced ? 'Ownership: ✅ Renounced' : 'Ownership: ❌ Not Renounced';
+      // ✅ Updated Liquidity & Ownership Display
+      if (data.liquidityLock?.locked === true) {
+        const untilDate = data.liquidityLock.until
+          ? new Date(data.liquidityLock.until).toLocaleDateString()
+          : 'Unknown';
+        document.getElementById('lpLock').textContent = `LP Locked: ✅ Until ${untilDate}`;
+      } else if (data.liquidityLock?.locked === false) {
+        document.getElementById('lpLock').textContent = 'LP Locked: ❌ Not Locked';
+      } else {
+        document.getElementById('lpLock').textContent = 'LP Locked: ❓ Unknown';
+      }
+
+      if (data.liquidityLock?.renounced === true) {
+        document.getElementById('ownershipStatus').textContent = 'Ownership: ✅ Renounced';
+      } else if (data.liquidityLock?.renounced === false) {
+        document.getElementById('ownershipStatus').textContent = 'Ownership: ❌ Not Renounced';
+      } else {
+        document.getElementById('ownershipStatus').textContent = 'Ownership: ❓ Unknown';
+      }
+
       document.getElementById('auditStatus').textContent = data.audit || 'N/A';
       document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
       document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
