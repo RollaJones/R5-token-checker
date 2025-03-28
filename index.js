@@ -75,6 +75,8 @@ async function fetchSolscanFallback(mint, lpTokenAddr) {
         const addr = firstHolder.owner;
         lpLocked = addr === '11111111111111111111111111111111' || addr.toLowerCase().includes('lock') || addr.toLowerCase().includes('burn');
       }
+    } else {
+      console.warn("⚠️ LP token address is undefined — skipping LP lock fallback check.");
     }
   } catch (e) {
     console.warn("⚠️ Solscan fallback failed:", e.message);
@@ -108,10 +110,11 @@ app.post('/api/scan', async (req, res) => {
       renounced: rawLockInfo.renounced ?? null
     };
 
-    console.log("📦 LP token address from DexScreener:", pair.lpToken?.address);
+    const lpTokenAddress = pair.lpToken?.address;
+    console.log("📦 LP token address from DexScreener:", lpTokenAddress || '❌ Not provided');
 
     if (liquidityLock.locked === null || liquidityLock.renounced === null) {
-      const fallback = await fetchSolscanFallback(base.address, pair.lpToken?.address);
+      const fallback = await fetchSolscanFallback(base.address, lpTokenAddress);
       if (liquidityLock.locked === null) liquidityLock.locked = fallback.lpLocked;
       if (liquidityLock.renounced === null) liquidityLock.renounced = fallback.renounced;
     }
