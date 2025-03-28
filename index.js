@@ -1,3 +1,5 @@
+// index.js with DexScreener + Solscan + RugCheck fallbacks
+
 const dotenv = require('dotenv');
 dotenv.config();
 console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
@@ -48,41 +50,37 @@ async function fetchHoldersFromHelius(mintAddress) {
   }
 }
 
-// === Solscan fallback (safe parsing + logging)
-async function fetchSolscanFallback(mint, lpTokenAddr) {
-  const headers = { accept: 'application/json' };
-  const baseURL = 'https://public-api.solscan.io';
-
-  let renounced = null;
-  let lpLocked = null;
-
+// === Solscan fallback (ownership only)
+async function fetchSolscanOwnership(mint) {
   try {
-    const tokenMetaRes = await fetch(`${baseURL}/token/meta?tokenAddress=${mint}`, { headers });
-    const tokenText = await tokenMetaRes.text();
-    const meta = JSON.parse(tokenText || '{}');
+    const res = await fetch(`https://public-api.solscan.io/token/meta?tokenAddress=${mint}`);
+    const text = await res.text();
+    const meta = JSON.parse(text || '{}');
     console.log("🧠 Solscan token meta:", meta);
+    const owner = meta?.owner;
+    return !owner || owner === '11111111111111111111111111111111';
+  } catch (e) {
+    console.warn("⚠️ Solscan ownership fallback failed:", e.message);
+    return null;
+  }
+}
 
-    renounced = !meta?.owner || meta.owner === '11111111111111111111111111111111';
-
-    if (lpTokenAddr) {
-      const lpRes = await fetch(`${baseURL}/token/holders?tokenAddress=${lpTokenAddr}&limit=10`, { headers });
-      const lpText = await lpRes.text();
-      const holderData = JSON.parse(lpText || '{}');
-      console.log("🔒 Solscan LP holders:", holderData);
-
-      const firstHolder = holderData?.data?.[0];
-      if (firstHolder) {
-        const addr = firstHolder.owner;
-        lpLocked = addr === '11111111111111111111111111111111' || addr.toLowerCase().includes('lock') || addr.toLowerCase().includes('burn');
-      }
-    } else {
-      console.warn("⚠️ LP token address is undefined — skipping LP lock fallback check.");
+// === RugCheck fallback (LP lock only)
+async function fetchRugCheckLP(mint) {
+  try {
+    const res = await fetch(`https://api.rugcheck.xyz/v1/token/${mint}`);
+    const data = await res.json();
+    console.log("🔒 RugCheck LP lock:", data);
+    if (typeof data.is_locked === 'boolean') {
+      return {
+        locked: data.is_locked,
+        until: data.locked_until ? new Date(data.locked_until * 1000).toISOString() : null
+      };
     }
   } catch (e) {
-    console.warn("⚠️ Solscan fallback failed:", e.message);
+    console.warn("⚠️ RugCheck LP fallback failed:", e.message);
   }
-
-  return { renounced, lpLocked };
+  return { locked: null, until: null };
 }
 
 // === Scan Endpoint
@@ -110,13 +108,15 @@ app.post('/api/scan', async (req, res) => {
       renounced: rawLockInfo.renounced ?? null
     };
 
-    const lpTokenAddress = pair.lpToken?.address;
-    console.log("📦 LP token address from DexScreener:", lpTokenAddress || '❌ Not provided');
+    // Run fallbacks
+    if (liquidityLock.locked === null) {
+      const rug = await fetchRugCheckLP(mintAddress);
+      liquidityLock.locked = rug.locked;
+      liquidityLock.until = rug.until;
+    }
 
-    if (liquidityLock.locked === null || liquidityLock.renounced === null) {
-      const fallback = await fetchSolscanFallback(base.address, lpTokenAddress);
-      if (liquidityLock.locked === null) liquidityLock.locked = fallback.lpLocked;
-      if (liquidityLock.renounced === null) liquidityLock.renounced = fallback.renounced;
+    if (liquidityLock.renounced === null) {
+      liquidityLock.renounced = await fetchSolscanOwnership(base.address);
     }
 
     const holders = await fetchHoldersFromHelius(base.address);
@@ -213,7 +213,6 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-// === Vote Endpoint
 app.post('/api/vote', (req, res) => {
   const { mintAddress, vote, comment } = req.body;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -229,7 +228,6 @@ app.post('/api/vote', (req, res) => {
   const cleanComment = String(comment || '').replace(/</g, "&lt;").substring(0, 200);
   voteData[mintAddress].votes.unshift({ vote, comment: cleanComment, ip, timestamp: Date.now() });
   voteData[mintAddress].ips[ip] = true;
-
   voteData[mintAddress].votes = voteData[mintAddress].votes.slice(0, 50);
   saveVotes();
 
