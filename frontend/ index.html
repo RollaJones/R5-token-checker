@@ -80,17 +80,30 @@
       text-align: center;
       border-top: 1px solid #333;
     }
-    a {
-      color: #14FFB9;
-      text-decoration: none;
+    .comment-box {
+      background-color: #1c1c1c;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
     }
-    a:hover {
-      text-decoration: underline;
+    textarea {
+      width: 100%;
+      border-radius: 6px;
+      border: none;
+      resize: none;
+      padding: 10px;
     }
   </style>
 </head>
 <body>
   <header>R5 Secure Token Checker</header>
+  <div class="top-banner">
+    <div class="top-token">Token ABC - 89</div>
+    <div class="top-token">Token XYZ - 83</div>
+    <div class="top-token">Token LMN - 81</div>
+    <div class="top-token">Token DEF - 79</div>
+    <div class="top-token">Token QRS - 77</div>
+  </div>
   <div class="search-bar">
     <input type="text" id="mintInput" placeholder="Enter Pair Address (ex: BqZfUxqiVQc...)">
     <button class="button" id="scanBtn">Scan Token</button>
@@ -109,13 +122,63 @@
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Liquidity & Ownership</h3>
       <div class="content" id="liquidityContent">
-        <p id="lpLock">TVL Locked: Loading...</p>
+        <p id="lpLock">LP Locked: Loading...</p>
         <p id="ownershipStatus">Ownership: Loading...</p>
-        <p id="liqSource" style="font-size: 14px; color: #999;"></p>
+      </div>
+    </div>
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Audit & Contract</h3>
+      <div class="content">
+        <p>Audit: <span id="auditStatus">Loading...</span></p>
+        <p>KYC Status: <span id="kycStatus">Loading...</span></p>
+        <p>Blacklist Function: <span id="blacklistStatus">Planned Feature</span></p>
+      </div>
+    </div>
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Wallet Activity</h3>
+      <div class="content">
+        <p>Dev Wallet Activity: <span id="walletActivity">Loading...</span></p>
+        <p><strong>Note:</strong> If dev wallet is unavailable, please refer to the token owner section on <a href="#" target="_blank" id="fallbackSolscan">Solscan</a>.</p>
+      </div>
+    </div>
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Holder Data</h3>
+      <div class="content">
+        <ul id="holderList">
+          <li>No holder data loaded.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="collapsible">
+      <h3 onclick="toggleContent(this)">Community Reports</h3>
+      <div class="content">
+        <p>Trust Score: <span id="trustScore">Loading...</span></p>
+        <p>Scam Reports: <span id="scamReports">Loading...</span></p>
+        <div>
+          <label><input type="radio" name="voteOption" value="support"> ✅ Support</label>
+          <label><input type="radio" name="voteOption" value="unsure"> 🤔 Unsure</label>
+          <label><input type="radio" name="voteOption" value="noSupport"> ❌ Don’t Support</label>
+        </div>
+        <div class="comment-box">
+          <textarea id="voteComment" maxlength="200" rows="3" placeholder="Optional: Why did you vote this way?"></textarea>
+        </div>
+        <button class="button" onclick="submitVote()">Submit Vote</button>
+        <div id="voteResults" style="display: none;">
+          <p><strong>Vote Results:</strong></p>
+          <ul id="recentComments"></ul>
+        </div>
       </div>
     </div>
   </div>
+  <footer>
+    <div class="wallet-bar">
+      <input type="text" placeholder="Enter Wallet Address (Premium)">
+    </div>
+    <button class="button">Scan My Wallet</button>
+  </footer>
   <script>
+    let hasVoted = false;
+
     document.getElementById("scanBtn").addEventListener("click", scanToken);
 
     function toggleContent(element) {
@@ -127,48 +190,84 @@
       const mint = document.getElementById('mintInput').value.trim();
       if (!mint) return alert('❌ Please enter a mint or pair address.');
 
-      try {
-        const response = await fetch('http://localhost:5000/api/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mintAddress: mint })
-        });
+      const response = await fetch('http://localhost:5000/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mintAddress: mint })
+      });
 
-        const data = await response.json();
-        document.querySelector('.section-title').textContent = `${data.name || 'Token'} Safety Report`;
-        document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
-        document.getElementById('tokenSummary').innerHTML = data.summary || 'No summary available.';
+      const data = await response.json();
+      document.querySelector('.section-title').textContent = `${data.name || 'Token'} Safety Report`;
+      document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
+      document.getElementById('tokenSummary').innerHTML = data.summary || 'No summary available.';
 
-        const lockStatus = data.liquidityLock?.locked;
-        const lockUntil = data.liquidityLock?.until;
+      const flagList = document.getElementById('flagList');
+      const flagsCard = document.getElementById('flagsCard');
+      if (data.flags?.length > 0) {
+        flagList.innerHTML = data.flags.map(f => `<li>${f}</li>`).join('');
+        flagsCard.style.display = 'block';
+      } else {
+        flagsCard.style.display = 'none';
+      }
 
-        if (lockStatus === true) {
-          const dateText = lockUntil ? ` Until ${new Date(lockUntil).toLocaleDateString()}` : '';
-          document.getElementById('lpLock').textContent = `TVL Locked: ✅${dateText}`;
-          document.getElementById('liqSource').innerHTML = `
-            <a href='https://rugcheck.xyz/token/${data.mintAddress}' target='_blank'>🔗 View Lock on RugCheck</a> |
-            <a href='https://solscan.io/token/${data.mintAddress}' target='_blank'>🔗 View on Solscan</a>
-          `;
-        } else if (lockStatus === false) {
-          document.getElementById('lpLock').textContent = 'TVL Locked: ❌ Not Locked';
-          document.getElementById('liqSource').innerHTML = '';
-        } else {
-          document.getElementById('lpLock').textContent = 'TVL Locked: ❓ Unknown';
-          document.getElementById('liqSource').innerHTML = '';
-        }
+      const holderList = document.getElementById('holderList');
+      holderList.innerHTML = data.holders?.length
+        ? data.holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
+        : '<li>No holder data found.</li>';
 
-        if (data.liquidityLock?.renounced === true) {
-          document.getElementById('ownershipStatus').textContent = 'Ownership: ✅ Renounced';
-        } else if (data.liquidityLock?.renounced === false) {
-          document.getElementById('ownershipStatus').textContent = 'Ownership: ❌ Not Renounced';
-        } else {
-          document.getElementById('ownershipStatus').textContent = 'Ownership: ❓ Unknown';
-        }
-      } catch (err) {
-        console.error("❌ Scan error:", err);
-        alert("❌ Failed to scan token. Please check the address and try again.");
+      const lockStatus = data.liquidityLock?.locked;
+      const lockUntil = data.liquidityLock?.until;
+
+      if (lockStatus === true) {
+        const dateText = lockUntil ? ` Until ${new Date(lockUntil).toLocaleDateString()}` : '';
+        document.getElementById('lpLock').textContent = `LP Locked: ✅${dateText}`;
+      } else if (lockStatus === false) {
+        document.getElementById('lpLock').textContent = 'LP Locked: ❌ Not Locked';
+      } else {
+        document.getElementById('lpLock').textContent = 'LP Locked: ❓ Unknown';
+      }
+
+      if (data.liquidityLock?.renounced === true) {
+        document.getElementById('ownershipStatus').textContent = 'Ownership: ✅ Renounced';
+      } else if (data.liquidityLock?.renounced === false) {
+        document.getElementById('ownershipStatus').textContent = 'Ownership: ❌ Not Renounced';
+      } else {
+        document.getElementById('ownershipStatus').textContent = 'Ownership: ❓ Unknown';
+      }
+
+      document.getElementById('auditStatus').textContent = data.audit || 'N/A';
+      document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
+      document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
+      document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
+      document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
+      document.getElementById('fallbackSolscan').href = `https://solscan.io/account/${data.mintAddress}`;
+    }
+
+    async function submitVote() {
+      if (hasVoted) return alert("You’ve already voted on this token.");
+      const mint = document.getElementById('mintInput').value.trim();
+      const vote = document.querySelector('input[name="voteOption"]:checked')?.value;
+      const comment = document.getElementById('voteComment').value.trim();
+
+      if (!vote) return alert("Please select a vote option.");
+
+      const res = await fetch('http://localhost:5000/api/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mintAddress: mint, vote, comment })
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        hasVoted = true;
+        const recentComments = result.comments || [];
+        document.getElementById('voteResults').style.display = 'block';
+        document.getElementById('recentComments').innerHTML = recentComments.map(c => `<li><strong>${c.vote}</strong>: ${c.comment}</li>`).join('');
+      } else {
+        alert('❌ Failed to submit vote.');
       }
     }
   </script>
 </body>
 </html>
+   
