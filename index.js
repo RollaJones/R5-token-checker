@@ -6,12 +6,15 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 5000;
+const VOTE_FILE = path.join(__dirname, 'votes.json');
 
 // 🔧 Fetch holders using Helius API
 async function fetchHoldersFromHelius(mintAddress) {
@@ -32,11 +35,9 @@ async function fetchHoldersFromHelius(mintAddress) {
 
     const data = await res.json();
     const valueList = data.result?.value || [];
-
-    // Get total supply
     const total = valueList.reduce((sum, acct) => sum + Number(acct.amount), 0);
 
-    return valueList.map((acct, i) => ({
+    return valueList.map((acct) => ({
       address: acct.address,
       percent: total ? ((Number(acct.amount) / total) * 100).toFixed(2) : 0
     }));
@@ -46,6 +47,35 @@ async function fetchHoldersFromHelius(mintAddress) {
   }
 }
 
+// 🔒 Vote submission endpoint
+app.post('/api/vote', (req, res) => {
+  const { mintAddress, vote, comment } = req.body;
+  if (!mintAddress || !vote) {
+    return res.status(400).json({ error: 'Missing vote or mint address' });
+  }
+
+  const votes = fs.existsSync(VOTE_FILE) ? JSON.parse(fs.readFileSync(VOTE_FILE)) : {};
+  if (!votes[mintAddress]) votes[mintAddress] = { support: 0, unsure: 0, noSupport: 0, comments: [] };
+
+  if (vote === 'support') votes[mintAddress].support++;
+  else if (vote === 'unsure') votes[mintAddress].unsure++;
+  else if (vote === 'noSupport') votes[mintAddress].noSupport++;
+
+  if (comment && comment.length <= 200) {
+    votes[mintAddress].comments.push(comment);
+  }
+
+  fs.writeFileSync(VOTE_FILE, JSON.stringify(votes, null, 2));
+  res.json({ success: true });
+});
+
+// 🔍 Fetch vote results
+app.get('/api/vote/:mint', (req, res) => {
+  const votes = fs.existsSync(VOTE_FILE) ? JSON.parse(fs.readFileSync(VOTE_FILE)) : {};
+  res.json(votes[req.params.mint] || { support: 0, unsure: 0, noSupport: 0, comments: [] });
+});
+
+// 🔎 Token scan route
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
   console.log("🔍 scanToken called");
@@ -68,10 +98,8 @@ app.post('/api/scan', async (req, res) => {
     const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
 
-    // Fetch holders from Helius
     const holders = await fetchHoldersFromHelius(base.address);
 
-    // === SCORING & FLAGS ===
     const flags = [];
     let score = 50;
 
@@ -112,13 +140,11 @@ app.post('/api/scan', async (req, res) => {
       flags.push(`Top holder owns ${topHolderPercent}%`);
     } else if (topHolderPercent > 10) score -= 5;
 
-    // Audit & KYC
     const audit = result.audit || 'N/A';
     const kyc = result.kyc || 'N/A';
     if (audit === 'N/A') flags.push("No audit found");
     if (kyc === 'N/A' || kyc === 'Not Verified') flags.push("KYC not verified");
 
-    // Dev Wallet Activity
     let walletActivity = result.walletActivity || 'Unavailable – refer to Solscan owner section';
     if (walletActivity === 'Clean') score += 5;
     else if (walletActivity === 'Suspicious') {
@@ -194,3 +220,4 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
 app.listen(PORT, () => {
   console.log(`✅ R5 Secure Token Checker API running on port ${PORT}`);
 });
+
