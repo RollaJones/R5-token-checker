@@ -1,5 +1,5 @@
 const dotenv = require('dotenv');
-dotenv.config(); // Load .env first
+dotenv.config();
 console.log("HELIUS_KEY (from env):", process.env.HELIUS_KEY);
 
 const express = require('express');
@@ -8,15 +8,22 @@ const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
-
 const app = express();
+const PORT = process.env.PORT || 5000;
+
 app.use(cors());
 app.use(bodyParser.json());
 
-const PORT = process.env.PORT || 5000;
-const VOTE_FILE = path.join(__dirname, 'votes.json');
+// === Vote storage setup ===
+const voteFile = path.join(__dirname, 'votes.json');
+let voteData = fs.existsSync(voteFile) ? JSON.parse(fs.readFileSync(voteFile, 'utf-8')) : {};
 
-// 🔧 Fetch holders using Helius API
+// Save votes.json periodically
+function saveVotes() {
+  fs.writeFileSync(voteFile, JSON.stringify(voteData, null, 2));
+}
+
+// === Helius Top Holders Fetch ===
 async function fetchHoldersFromHelius(mintAddress) {
   const url = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_KEY}`;
   const body = {
@@ -37,7 +44,7 @@ async function fetchHoldersFromHelius(mintAddress) {
     const valueList = data.result?.value || [];
     const total = valueList.reduce((sum, acct) => sum + Number(acct.amount), 0);
 
-    return valueList.map((acct) => ({
+    return valueList.map(acct => ({
       address: acct.address,
       percent: total ? ((Number(acct.amount) / total) * 100).toFixed(2) : 0
     }));
@@ -47,48 +54,16 @@ async function fetchHoldersFromHelius(mintAddress) {
   }
 }
 
-// 🔒 Vote submission endpoint
-app.post('/api/vote', (req, res) => {
-  const { mintAddress, vote, comment } = req.body;
-  if (!mintAddress || !vote) {
-    return res.status(400).json({ error: 'Missing vote or mint address' });
-  }
-
-  const votes = fs.existsSync(VOTE_FILE) ? JSON.parse(fs.readFileSync(VOTE_FILE)) : {};
-  if (!votes[mintAddress]) votes[mintAddress] = { support: 0, unsure: 0, noSupport: 0, comments: [] };
-
-  if (vote === 'support') votes[mintAddress].support++;
-  else if (vote === 'unsure') votes[mintAddress].unsure++;
-  else if (vote === 'noSupport') votes[mintAddress].noSupport++;
-
-  if (comment && comment.length <= 200) {
-    votes[mintAddress].comments.push(comment);
-  }
-
-  fs.writeFileSync(VOTE_FILE, JSON.stringify(votes, null, 2));
-  res.json({ success: true });
-});
-
-// 🔍 Fetch vote results
-app.get('/api/vote/:mint', (req, res) => {
-  const votes = fs.existsSync(VOTE_FILE) ? JSON.parse(fs.readFileSync(VOTE_FILE)) : {};
-  res.json(votes[req.params.mint] || { support: 0, unsure: 0, noSupport: 0, comments: [] });
-});
-
-// 🔎 Token scan route
+// === Token Scan Endpoint ===
 app.post('/api/scan', async (req, res) => {
   const { mintAddress } = req.body;
-  console.log("🔍 scanToken called");
-
   if (!mintAddress) return res.status(400).json({ error: 'Missing address' });
 
   try {
     const url = `https://api.dexscreener.com/latest/dex/pairs/solana/${mintAddress}`;
-    console.log("🌐 Fetching from DexScreener:", url);
     const response = await fetch(url);
     const result = await response.json();
     const pair = result.pair;
-
     if (!pair) return res.status(404).json({ error: 'Pair not found' });
 
     const base = pair.baseToken || {};
@@ -99,7 +74,6 @@ app.post('/api/scan', async (req, res) => {
     const createdAt = pair.pairCreatedAt || Date.now();
 
     const holders = await fetchHoldersFromHelius(base.address);
-
     const flags = [];
     let score = 50;
 
@@ -163,19 +137,12 @@ app.post('/api/scan', async (req, res) => {
     score -= flags.length * 1.5;
     score = Math.max(0, Math.min(100, score));
 
-    let grade = 'F';
-    if (score >= 90) grade = 'A';
-    else if (score >= 75) grade = 'B';
-    else if (score >= 60) grade = 'C';
-    else if (score >= 45) grade = 'D';
-
     const summary = generateSummary(base, liquidity, volume, txns, flags, mintAddress);
 
     res.json({
       name: base.name,
       symbol: base.symbol,
       score,
-      grade,
       liquidityUSD: liquidity.usd,
       holders,
       audit,
@@ -190,11 +157,37 @@ app.post('/api/scan', async (req, res) => {
       summary,
       mintAddress
     });
-
   } catch (err) {
-    console.error("❌ Error:", err);
+    console.error("❌ Error in scan:", err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// === Vote Submission Endpoint ===
+app.post('/api/vote', (req, res) => {
+  const { mintAddress, vote, comment } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+  if (!mintAddress || !vote) {
+    return res.status(400).json({ success: false, message: "Missing vote or token." });
+  }
+
+  // IP vote check
+  voteData[mintAddress] = voteData[mintAddress] || { votes: [], ips: {} };
+  if (voteData[mintAddress].ips[ip]) {
+    return res.status(403).json({ success: false, message: "Already voted." });
+  }
+
+  const cleanComment = String(comment || '').replace(/</g, "&lt;").substring(0, 200);
+  voteData[mintAddress].votes.unshift({ vote, comment: cleanComment, ip, timestamp: Date.now() });
+  voteData[mintAddress].ips[ip] = true;
+
+  // Trim to last 50 votes per token
+  voteData[mintAddress].votes = voteData[mintAddress].votes.slice(0, 50);
+  saveVotes();
+
+  const recent = voteData[mintAddress].votes.slice(0, 5).map(v => ({ vote: v.vote, comment: v.comment }));
+  res.json({ success: true, comments: recent });
 });
 
 function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress = "") {
@@ -207,7 +200,6 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
 
   const solscanLink = `🔍 <a href="https://solscan.io/account/${mintAddress}" target="_blank">View on Solscan</a>`;
   const chartLink = `📊 <a href="https://dexscreener.com/solana/${mintAddress}" target="_blank">View Chart</a>`;
-
   let summary = `${name} (${symbol}) has ${liqStr} liquidity and ${volStr} 24h volume. Buys: ${buyCount}, Sells: ${sellCount}.<br>${solscanLink}  |  ${chartLink}`;
 
   if (flags.length > 0) {
@@ -220,4 +212,3 @@ function generateSummary(base, liquidity, volume, txns, flags = [], mintAddress 
 app.listen(PORT, () => {
   console.log(`✅ R5 Secure Token Checker API running on port ${PORT}`);
 });
-
