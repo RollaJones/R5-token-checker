@@ -80,11 +80,23 @@
       text-align: center;
       border-top: 1px solid #333;
     }
+    .comment-box {
+      background-color: #1c1c1c;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+    textarea {
+      width: 100%;
+      border-radius: 6px;
+      border: none;
+      resize: none;
+      padding: 10px;
+    }
   </style>
 </head>
 <body>
   <header>R5 Secure Token Checker</header>
-
   <div class="top-banner">
     <div class="top-token">Token ABC - 89</div>
     <div class="top-token">Token XYZ - 83</div>
@@ -92,26 +104,21 @@
     <div class="top-token">Token DEF - 79</div>
     <div class="top-token">Token QRS - 77</div>
   </div>
-
   <div class="search-bar">
     <input type="text" id="mintInput" placeholder="Enter Pair Address (ex: BqZfUxqiVQc...)">
     <button class="button" id="scanBtn">Scan Token</button>
   </div>
-
   <div class="section">
     <div class="section-title">Token Safety Report</div>
     <div class="token-card" id="scoreCard">Overall Score: <strong style="color: #14FFB9;">N/A</strong></div>
-
     <div class="token-card">
       <strong>Token Summary:</strong>
       <p id="tokenSummary">...</p>
     </div>
-
     <div class="token-card" id="flagsCard" style="display: none;">
       <strong>Flags:</strong>
       <ul id="flagList"></ul>
     </div>
-
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Liquidity & Ownership</h3>
       <div class="content" id="liquidityContent">
@@ -119,7 +126,6 @@
         <p id="ownershipStatus">Ownership: Loading...</p>
       </div>
     </div>
-
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Audit & Contract</h3>
       <div class="content">
@@ -128,7 +134,6 @@
         <p>Blacklist Function: <span id="blacklistStatus">Planned Feature</span></p>
       </div>
     </div>
-
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Wallet Activity</h3>
       <div class="content">
@@ -136,7 +141,6 @@
         <p><strong>Note:</strong> If dev wallet is unavailable, please refer to the token owner section on <a href="#" target="_blank" id="fallbackSolscan">Solscan</a>.</p>
       </div>
     </div>
-
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Holder Data</h3>
       <div class="content">
@@ -145,95 +149,104 @@
         </ul>
       </div>
     </div>
-
     <div class="collapsible">
       <h3 onclick="toggleContent(this)">Community Reports</h3>
       <div class="content">
         <p>Trust Score: <span id="trustScore">Loading...</span></p>
         <p>Scam Reports: <span id="scamReports">Loading...</span></p>
-        <button class="button" style="background-color: #28a745;" onclick="vote('support')">Support (<span id="supportCount">0</span>)</button>
-        <button class="button" style="background-color: #ffc107; color: black;" onclick="vote('unsure')">Unsure (<span id="unsureCount">0</span>)</button>
-        <button class="button" style="background-color: #dc3545;" onclick="vote('noSupport')">Don’t Support (<span id="noSupportCount">0</span>)</button>
+        <div>
+          <label><input type="radio" name="voteOption" value="support"> ✅ Support</label>
+          <label><input type="radio" name="voteOption" value="unsure"> 🤔 Unsure</label>
+          <label><input type="radio" name="voteOption" value="noSupport"> ❌ Don’t Support</label>
+        </div>
+        <div class="comment-box">
+          <textarea id="voteComment" maxlength="200" rows="3" placeholder="Optional: Why did you vote this way?"></textarea>
+        </div>
+        <button class="button" onclick="submitVote()">Submit Vote</button>
+        <div id="voteResults" style="display: none;">
+          <p><strong>Vote Results:</strong></p>
+          <ul id="recentComments"></ul>
+        </div>
       </div>
     </div>
   </div>
-
   <footer>
     <div class="wallet-bar">
       <input type="text" placeholder="Enter Wallet Address (Premium)">
     </div>
     <button class="button">Scan My Wallet</button>
   </footer>
-
   <script>
-    let support = 0, unsure = 0, noSupport = 0;
+    let hasVoted = false;
 
-    document.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("scanBtn").addEventListener("click", scanToken);
-    });
+    document.getElementById("scanBtn").addEventListener("click", scanToken);
 
     function toggleContent(element) {
       const content = element.nextElementSibling;
       content.style.display = content.style.display === "block" ? "none" : "block";
     }
 
-    function vote(type) {
-      if (type === 'support') {
-        support++;
-        document.getElementById('supportCount').textContent = support;
-      } else if (type === 'unsure') {
-        unsure++;
-        document.getElementById('unsureCount').textContent = unsure;
-      } else if (type === 'noSupport') {
-        noSupport++;
-        document.getElementById('noSupportCount').textContent = noSupport;
-      }
-    }
-
     async function scanToken() {
       const mint = document.getElementById('mintInput').value.trim();
       if (!mint) return alert('❌ Please enter a mint or pair address.');
 
-      try {
-        const response = await fetch('http://localhost:5000/api/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mintAddress: mint })
-        });
+      const response = await fetch('http://localhost:5000/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mintAddress: mint })
+      });
 
-        const data = await response.json();
-        document.querySelector('.section-title').textContent = `${data.name || 'Token'} Safety Report`;
-        document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
-        document.getElementById('tokenSummary').innerHTML = data.summary || 'No summary available.';
+      const data = await response.json();
+      document.querySelector('.section-title').textContent = `${data.name || 'Token'} Safety Report`;
+      document.querySelector('#scoreCard strong').textContent = data.score ?? 'N/A';
+      document.getElementById('tokenSummary').innerHTML = data.summary || 'No summary available.';
 
-        const flagsCard = document.getElementById('flagsCard');
-        const flagList = document.getElementById('flagList');
-        if (data.flags && data.flags.length > 0) {
-          flagList.innerHTML = data.flags.map(f => `<li>${f}</li>`).join('');
-          flagsCard.style.display = 'block';
-        } else {
-          flagsCard.style.display = 'none';
-        }
+      const flagList = document.getElementById('flagList');
+      const flagsCard = document.getElementById('flagsCard');
+      if (data.flags?.length > 0) {
+        flagList.innerHTML = data.flags.map(f => `<li>${f}</li>`).join('');
+        flagsCard.style.display = 'block';
+      } else {
+        flagsCard.style.display = 'none';
+      }
 
-        const holderList = document.getElementById('holderList');
-        const holders = data.holders || [];
-        holderList.innerHTML = holders.length
-          ? holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
-          : '<li>No holder data found.</li>';
+      const holderList = document.getElementById('holderList');
+      holderList.innerHTML = data.holders?.length
+        ? data.holders.map((h, i) => `<li>Wallet ${i + 1}: ${h.percent}% - ${h.address.slice(0, 4)}...${h.address.slice(-4)}</li>`).join('')
+        : '<li>No holder data found.</li>';
 
-        document.getElementById('lpLock').textContent = data.liquidityLock?.locked ? `LP Locked: ✅ Until ${new Date(data.liquidityLock.until).toLocaleDateString()}` : 'LP Locked: ❌ Not Locked';
-        document.getElementById('ownershipStatus').textContent = data.liquidityLock?.renounced ? 'Ownership: ✅ Renounced' : 'Ownership: ❌ Not Renounced';
+      document.getElementById('lpLock').textContent = data.liquidityLock?.locked ? `LP Locked: ✅ Until ${new Date(data.liquidityLock.until).toLocaleDateString()}` : 'LP Locked: ❌ Not Locked';
+      document.getElementById('ownershipStatus').textContent = data.liquidityLock?.renounced ? 'Ownership: ✅ Renounced' : 'Ownership: ❌ Not Renounced';
+      document.getElementById('auditStatus').textContent = data.audit || 'N/A';
+      document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
+      document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
+      document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
+      document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
+      document.getElementById('fallbackSolscan').href = `https://solscan.io/account/${data.mintAddress}`;
+    }
 
-        document.getElementById('auditStatus').textContent = data.audit || 'N/A';
-        document.getElementById('kycStatus').textContent = data.kyc || 'N/A';
-        document.getElementById('walletActivity').textContent = data.walletActivity || 'Unknown';
+    async function submitVote() {
+      if (hasVoted) return alert("You’ve already voted on this token.");
+      const mint = document.getElementById('mintInput').value.trim();
+      const vote = document.querySelector('input[name="voteOption"]:checked')?.value;
+      const comment = document.getElementById('voteComment').value.trim();
 
-        document.getElementById('trustScore').textContent = data.trustScore || 'N/A';
-        document.getElementById('scamReports').textContent = data.scamReports || 'N/A';
-        document.getElementById('fallbackSolscan').href = `https://solscan.io/account/${data.mintAddress}`;
-      } catch (err) {
-        alert('⚠️ Failed to fetch token data.');
-        console.error(err);
+      if (!vote) return alert("Please select a vote option.");
+
+      const res = await fetch('http://localhost:5000/api/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mintAddress: mint, vote, comment })
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        hasVoted = true;
+        const recentComments = result.comments || [];
+        document.getElementById('voteResults').style.display = 'block';
+        document.getElementById('recentComments').innerHTML = recentComments.map(c => `<li><strong>${c.vote}</strong>: ${c.comment}</li>`).join('');
+      } else {
+        alert('❌ Failed to submit vote.');
       }
     }
   </script>
