@@ -48,7 +48,7 @@ async function fetchHoldersFromHelius(mintAddress) {
   }
 }
 
-// === Solscan fallback
+// === Solscan fallback (safe parsing)
 async function fetchSolscanFallback(mint, lpTokenAddr) {
   const headers = { accept: 'application/json' };
   const baseURL = 'https://public-api.solscan.io';
@@ -57,15 +57,17 @@ async function fetchSolscanFallback(mint, lpTokenAddr) {
   let lpLocked = null;
 
   try {
-    const tokenMeta = await fetch(`${baseURL}/token/meta?tokenAddress=${mint}`, { headers });
-    const meta = await tokenMeta.json();
+    const tokenMetaRes = await fetch(`${baseURL}/token/meta?tokenAddress=${mint}`, { headers });
+    const tokenText = await tokenMetaRes.text();
+    const meta = JSON.parse(tokenText || '{}');
     console.log("🧠 Solscan token meta:", meta);
 
     renounced = !meta?.owner || meta.owner === '11111111111111111111111111111111';
 
     if (lpTokenAddr) {
-      const holdersRes = await fetch(`${baseURL}/token/holders?tokenAddress=${lpTokenAddr}&limit=10`, { headers });
-      const holderData = await holdersRes.json();
+      const lpRes = await fetch(`${baseURL}/token/holders?tokenAddress=${lpTokenAddr}&limit=10`, { headers });
+      const lpText = await lpRes.text();
+      const holderData = JSON.parse(lpText || '{}');
       console.log("🔒 Solscan LP holders:", holderData);
 
       const firstHolder = holderData?.data?.[0];
