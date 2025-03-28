@@ -70,8 +70,15 @@ app.post('/api/scan', async (req, res) => {
     const liquidity = pair.liquidity || {};
     const volume = pair.volume || {};
     const txns = pair.txns?.h24 || {};
-    const lockInfo = result.liquidityLock || {};
     const createdAt = pair.pairCreatedAt || Date.now();
+
+    // Updated lockInfo handling
+    const rawLockInfo = result.liquidityLock || {};
+    const liquidityLock = {
+      locked: rawLockInfo.locked ?? false,
+      until: rawLockInfo.until ?? null,
+      renounced: rawLockInfo.renounced ?? null
+    };
 
     const holders = await fetchHoldersFromHelius(base.address);
     const flags = [];
@@ -89,16 +96,18 @@ app.post('/api/scan', async (req, res) => {
       flags.push("Very low liquidity");
     }
 
-    if (lockInfo.locked) score += 5;
+    if (liquidityLock.locked) score += 5;
     else {
       score -= 10;
       flags.push("LP not locked");
     }
 
-    if (lockInfo.renounced) score += 10;
-    else {
+    if (liquidityLock.renounced) score += 10;
+    else if (liquidityLock.renounced === false) {
       score -= 10;
       flags.push("Ownership not renounced");
+    } else {
+      flags.push("Ownership status unknown");
     }
 
     if (volume.h24 > 100000) score += 10;
@@ -151,7 +160,7 @@ app.post('/api/scan', async (req, res) => {
       walletActivity,
       trustScore: result.trustScore || 'N/A',
       scamReports: result.scamReports || 'N/A',
-      liquidityLock: lockInfo,
+      liquidityLock,
       pairCreatedAt: createdAt,
       flags,
       summary,
@@ -172,7 +181,6 @@ app.post('/api/vote', (req, res) => {
     return res.status(400).json({ success: false, message: "Missing vote or token." });
   }
 
-  // IP vote check
   voteData[mintAddress] = voteData[mintAddress] || { votes: [], ips: {} };
   if (voteData[mintAddress].ips[ip]) {
     return res.status(403).json({ success: false, message: "Already voted." });
@@ -182,7 +190,6 @@ app.post('/api/vote', (req, res) => {
   voteData[mintAddress].votes.unshift({ vote, comment: cleanComment, ip, timestamp: Date.now() });
   voteData[mintAddress].ips[ip] = true;
 
-  // Trim to last 50 votes per token
   voteData[mintAddress].votes = voteData[mintAddress].votes.slice(0, 50);
   saveVotes();
 
