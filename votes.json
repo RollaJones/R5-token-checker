@@ -1,0 +1,15 @@
+{
+  "FKNAirkGntbSTELWsnTqJuSDLehy9e1FUWemt6E4htvZ": {
+    "votes": [
+      {
+        "vote": "unsure",
+        "comment": "The coin has a lot of volitility",
+        "ip": "::1",
+        "timestamp": 1743183938791
+      }
+    ],
+    "ips": {
+      "::1": true
+    }
+  }
+}

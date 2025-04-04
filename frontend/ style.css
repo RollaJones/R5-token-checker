@@ -1,39 +1,111 @@
-
 body {
-    background-color: #121212;
-    font-family: Arial, sans-serif;
-    color: #ffffff;
-    margin: 0;
-    padding: 0;
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0 20px;
+  background: #f7f7f7;
 }
-header, .token-card {
-    margin: 20px;
+
+header, footer {
+  background: #333;
+  color: #fff;
+  padding: 10px 20px;
 }
-header {
-    text-align: center;
-    font-size: 24px;
-    font-weight: bold;
+
+header h1, footer p {
+  margin: 0;
 }
-.collapsible {
-    background-color: #1e1e1e;
-    border-radius: 8px;
-    padding: 10px;
-    margin: 10px 20px;
-    cursor: pointer;
+
+main {
+  background: #fff;
+  padding: 20px;
+  margin: 20px 0;
 }
-.collapsible-content {
-    display: none;
-    padding: 10px 20px;
-    background-color: #2a2a2a;
-    border-left: 4px solid #14FFB9;
-    margin: 0 20px 20px;
-    border-radius: 0 0 8px 8px;
+
+section {
+  margin-bottom: 30px;
 }
-.button {
-    padding: 10px;
-    margin-top: 10px;
-    border-radius: 6px;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
+
+section h2 {
+  border-bottom: 2px solid #ddd;
+  padding-bottom: 5px;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+ul li {
+  padding: 5px 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+table, th, td {
+  border: 1px solid #ddd;
+}
+
+th, td {
+  padding: 8px;
+  text-align: left;
+}
+
+#caution-banner {
+  background-color: #ff4c4c;
+  color: white;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.hidden {
+  display: none;
+}
+
+/* Styles for Community Report Form */
+#community-form {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+}
+
+#community-form label {
+  display: block;
+  margin-top: 10px;
+}
+
+#community-form textarea {
+  width: 100%;
+  margin-top: 5px;
+}
+
+#community-form button {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #333;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+#community-form button:hover {
+  background: #555;
+}
+
+#community-comments {
+  margin-top: 20px;
+}
+
+#community-comments .comment {
+  border-bottom: 1px solid #ddd;
+  padding: 10px 0;
+}
+
+#community-comments .comment:last-child {
+  border-bottom: none;
 }

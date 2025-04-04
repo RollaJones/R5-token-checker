@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snapshot Reports</title>
+  <!-- Load Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .chart-container { width: 600px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Snapshot Report Viewer</h1>
+  <form id="searchForm">
+    <label for="queryId">Enter Search ID:</label>
+    <input type="text" id="queryId" required>
+    <button type="submit">Search</button>
+  </form>
+
+  <div id="report">
+    <h2>Snapshot Data</h2>
+    <pre id="snapshotData"></pre>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
